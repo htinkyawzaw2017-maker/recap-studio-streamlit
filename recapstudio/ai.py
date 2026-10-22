@@ -591,6 +591,9 @@ def _chunk_prompt(chunk_start: float, chunk_end: float, target_language: str,
         voice_block = '''
 RECAP VOICE — NON-NEGOTIABLE (မြန်မာ):
 - လူပြော မြန်မာစကား စစ်စစ် (စကားပြော ဟန်) နဲ့ပဲ ရေးပါ။ စာအုပ်/ရုံးသုံး ဟန်၊ ဘာသာပြန် ဟန် လုံးဝ မသုံးရ။
+- ဘာသာပြန် မလုပ်ပါနဲ့ — ပြန်ပြောပါ: မူရင်း ဗီဒီယိုက အင်္ဂလိပ်လို (သို့ အခြား ဘာသာနဲ့) ပြောထားရင် စာကြောင်း တစ်ကြောင်းချင်းကို လိုက်ပြီး တိုက်ရိုက် ပြန်ခြင်း လုံးဝ မလုပ်ရ (အဲဒါက နားထောင်လို့ မကောင်းတဲ့ "တုံးတိ" ဘာသာပြန် ဖြစ်စေတယ်)။ အရင် အဖြစ်အပျက်ကို နားလည်ပါ၊ ပြီးမှ မြန်မာ ဇာတ်လမ်းပြောသူ တစ်ယောက် ကိုယ်ပိုင် စကားနဲ့ ပြန်ပြောသလို ရေးပါ။
+- လိုင်းတိုင်းသည် ပြီးပြည့်စုံတဲ့ ဝါကျ ဖြစ်ရမည် — အဆုံးမှာ "။" အမြဲ ပါရမည်။ အတွေးတပိုင်း၊ ကြိယာ မပါတဲ့ အပိုင်းအစ၊ စကားစပ် အဆတ်အပြတ် မရေးရ။
+- အပိုင်းအစတွေ မခွဲပါနဲ့: ဆက်စပ်တဲ့ အချက်တွေကို တစ်လိုင်းထဲ သဘာဝကျအောင် ပေါင်းပြောပါ။ ၅-၁၀ စက္ကန့်စာ ဇာတ်ဝင် တစ်ချက် = လိုင်း တစ်လိုင်း ကို ပိုနှစ်သက်ပါ — ၂-၃ စက္ကန့် တိုတို အစအနတွေ အများကြီး မလုပ်ရ။
 - လိုင်းတိုင်းသည် အဲဒီ အချိန် screen ပေါ်မှာ တကယ် မြင်နေရတဲ့ အရာ (ဘယ်သူ၊ ဘာလုပ်နေတယ်၊ ဘယ်နေရာ၊ မျက်နှာ အမူအရာ) ကိုပဲ ကွက်တိ ပြောရမည်။ မမြင်ရတာ၊ မသေချာတာ မထည့်ရ။
 - တားမြစ် generic စကားများ (လုံးဝ မသုံးရ): "ဇာတ်လမ်း စတင်ပါပြီ", "ဒီဇာတ်လမ်းမှာ", "အခုဆိုရင်", "ဆက်လက် စောင့်ကြည့်ရအောင်", "ဘာတွေ ဖြစ်လာမလဲ", "သူတို့ စကားပြောနေကြပါတယ်" (ဘာအကြောင်း ပြောနေတယ်ဆိုတာ မပါဘဲ), "အံ့ဩစရာ ကောင်းပါတယ်" (အကြောင်းရင်း မပါဘဲ)။
 - အသေးစိတ် အချက်အလက် သုံးပါ: လူနာမည်၊ ပစ္စည်း၊ နေရာ၊ လုပ်ရပ်၊ စိတ်ခံစားမှု။ တစ်လိုင်း = ဇာတ်ဝင်ခန်း တစ်ခု။
@@ -606,6 +609,7 @@ DUBBING VOICE — NON-NEGOTIABLE (မြန်မာ):
         voice_block = '''
 RECAP VOICE — NON-NEGOTIABLE:
 - Write like a real human recap narrator talking, not a summary writer. Every line must describe EXACTLY what is visible on screen in that moment — who, what action, where, what emotion. Never invent or generalise.
+- RETELL, never translate: if the source speaks another language, understand the beat and retell it in your own natural words. Sentence-by-sentence literal translation produces wooden, choppy narration and is banned. Every line must be one COMPLETE sentence with final punctuation — no fragments, no thoughts split across two lines. Merge related micro-facts into one flowing 5-10 second line instead of many 2-3 second scraps.
 - BANNED generic filler: "In this video", "Let's see what happens next", "Things take a turn", "Little did he know", "Meanwhile" (without concrete content), or any line that could fit any movie.
 - Concrete details only: names, objects, places, actions. One line = one scene beat. Vary sentence endings; keep it punchy and spoken.'''
     else:
@@ -625,7 +629,9 @@ DUBBING VOICE — NON-NEGOTIABLE:
   the final scene near {chunk_end:.2f}s. No unexplained narration gap may exceed 4 seconds.
 - During quiet scenes, narrate the visible action and its story consequence. This is the only mode
   in which you should add connective narration.
-- Make each entry one concise thought with a start/end window that can be spoken naturally."""
+- Make each entry one concise, COMPLETE thought (a full sentence, never a fragment) with a
+  start/end window that can be spoken naturally. Prefer fewer, fuller lines of 5-10 seconds
+  over many tiny 2-3 second scraps about the same beat."""
     else:
         task_rules = f"""DIALOGUE DUB TIMELINE RULES
 - Return an entry ONLY for real speech audible in the source audio. A quiet interval is correct;
@@ -923,6 +929,8 @@ class TimelineExtractor:
 
         # ── coverage sweep ────────────────────────────────────────────
         dialogues, filled, longest = self._coverage_sweep(dialogues, duration, video_path)
+        # ── join chopped fragments into complete lines (recap only) ────
+        dialogues = self._merge_fragments(dialogues)
         # ── per-minute exact fit: no line may overrun its scene/minute ──
         dialogues, fit_report = self._enforce_minute_fit(dialogues, duration)
         report = self._coverage(dialogues, duration, filled, per_chunk, longest)
@@ -1248,6 +1256,41 @@ class TimelineExtractor:
             self.log(f"Coverage sweep added {added} narration lines")
         return added
 
+    def _merge_fragments(self, dialogues: list[dict]) -> list[dict]:
+        """Join chopped fragments back into complete, listenable lines.
+
+        Sentence-by-sentence output (worst with narration-dense sources)
+        leaves half-thoughts like "ဒါပေမဲ့ ကလေးပုံမြင်" as standalone lines —
+        wooden to hear and impossible to voice naturally. In Recap mode, a
+        line that does not end a sentence and is immediately followed by
+        its continuation is merged with it, as long as the combined line
+        still fits the combined window (25% slack — retime absorbs that).
+        Dubbing is untouched: its lines are real speaker turns.
+        """
+        if self.fill_mode != "continuous":
+            return dialogues
+        out: list[dict] = []
+        merged = 0
+        for item in sorted(dialogues, key=lambda d: float(d.get("start", 0.0))):
+            d = dict(item)
+            if out:
+                prev = out[-1]
+                prev_text = str(prev.get("text", "")).strip()
+                gap = float(d.get("start", 0.0)) - float(prev.get("end", 0.0))
+                joined = f"{prev_text} {str(d.get('text', '')).strip()}".strip()
+                window = float(d.get("end", 0.0)) - float(prev.get("start", 0.0))
+                if (prev_text and not prev_text.endswith(("။", "!", "?", "…", '"'))
+                        and gap <= 1.5 and window > 0
+                        and estimate_speech_seconds(joined, self.lang) <= window * 1.25):
+                    prev["text"] = joined
+                    prev["end"] = d.get("end", prev.get("end"))
+                    merged += 1
+                    continue
+            out.append(d)
+        if merged:
+            self.log(f"🧩 Fragment merge: အပိုင်းအစ {merged} ခု ကို ဝါကျ အပြည့် လိုင်းများ အဖြစ် ပြန်ပေါင်းပြီးပါပြီ")
+        return out
+
     def _enforce_minute_fit(self, dialogues: list[dict],
                             duration: float) -> tuple[list[dict], dict]:
         """Per-minute exact fit (owner rule v1.4: "script ကို မိနစ်အလိုက်
@@ -1274,7 +1317,10 @@ class TimelineExtractor:
         targets: dict[int, int] = {}
         for pos, d in enumerate(lines):
             est = estimate_speech_seconds(str(d.get("text", "")), self.lang)
-            if est > window(d) * 1.02:
+            # 25% slack: retime slows the picture to meet the voice, so only
+            # genuine overruns are touched — rewriting healthy lines just to
+            # satisfy a tight budget was making the narration choppy.
+            if est > window(d) * 1.25:
                 targets[pos] = max(10, int(window(d) * cps * 0.95))
         blocks: dict[int, list[int]] = {}
         for pos, d in enumerate(lines):
@@ -1283,20 +1329,20 @@ class TimelineExtractor:
             block_len = max(1.0, min(60.0, duration - block * 60.0))
             total = sum(estimate_speech_seconds(str(lines[p].get("text", "")),
                                                 self.lang) for p in positions)
-            if total <= block_len * 1.02:
+            if total <= block_len * 1.10:
                 continue
             report["blocks_adjusted"] += 1
             by_size = sorted(positions, key=lambda p: -estimate_speech_seconds(
                 str(lines[p].get("text", "")), self.lang))
             for pos in by_size:
-                if total <= block_len * 1.02:
+                if total <= block_len * 1.10:
                     break
                 est = estimate_speech_seconds(str(lines[pos].get("text", "")), self.lang)
-                goal = max(10, int(len(str(lines[pos].get("text", ""))) * 0.8))
+                goal = max(10, int(len(str(lines[pos].get("text", ""))) * 0.85))
                 if pos in targets:
                     goal = min(goal, targets[pos])
                 targets[pos] = goal
-                total -= est * 0.2
+                total -= est * 0.15
         if not targets:
             return lines, report
 
@@ -1318,8 +1364,11 @@ spoken inside its own scene, so the narrator would still be reading it after the
 Rules:
 1. Rewrite each line to at most its max characters. Keep every fact, name and the natural,
    human spoken style — just say it tighter. Never add generic filler.
-2. Plain text only: no quotes, no brackets, no timestamps.
-3. Return STRICT JSON only: {{"lines": [{{"index": 0, "text": "..."}}]}}"""
+2. Every rewritten line must stay a COMPLETE, flowing sentence that ends with final
+   punctuation — never a fragment, never cut off mid-thought. Shorten by dropping
+   secondary details and merging clauses, never by chopping a sentence in half.
+3. Plain text only: no quotes, no brackets, no timestamps.
+4. Return STRICT JSON only: {{"lines": [{{"index": 0, "text": "..."}}]}}"""
             schema = {"type": "object", "properties": {"lines": {
                 "type": "array", "items": {"type": "object", "properties": {
                     "index": {"type": "integer"}, "text": {"type": "string"}},
@@ -1344,8 +1393,13 @@ Rules:
                 raise
             except Exception as exc:
                 self.log(f"⚠️ minute-fit rewrite failed: {exc}")
-        # 2) deterministic clause cut for anything still too long
+        # 2) deterministic clause cut — ONLY for extreme overruns (the AI
+        # rewrite keeps language natural; a hard cut is a last resort and
+        # was making mildly-long lines read like chopped fragments)
         for pos, max_chars in remaining.items():
+            est = estimate_speech_seconds(str(lines[pos].get("text", "")), self.lang)
+            if est <= window(lines[pos]) * 1.6:
+                continue
             short, changed = condense_line(str(lines[pos].get("text", "")),
                                            max_chars / max(1.0, cps), self.lang)
             if changed and short:

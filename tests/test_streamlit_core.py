@@ -207,4 +207,29 @@ ok(_burned.exists()
    and abs(get_media_duration(str(_burned)) - info["duration"]) < 0.4,
    "PNG subtitles burned onto the video, duration kept")
 
+# 15 ── v1.4.1 regression: analysis runs chunks in worker threads; the
+#       app's log sink must be a plain list, never st.session_state
+#       (touching it from a thread killed every chunk on Cloud with
+#       "'st.session_state has no key logs'")
+_app_src = (Path(__file__).resolve().parent.parent / "streamlit_app.py").read_text(encoding="utf-8")
+ok('SS["logs"].append' not in _app_src,
+   "app log_fn never writes session_state from a callback")
+from concurrent.futures import ThreadPoolExecutor as _TPE
+_shared: list[str] = []
+_ext2 = TimelineExtractor(log_fn=lambda m: _shared.append(str(m)))
+with _TPE(max_workers=4) as _pool:
+    list(_pool.map(lambda i: _ext2.log(f"line {i}"), range(20)))
+ok(len(_shared) == 20, "extractor logs fine from worker threads (plain list)")
+
+# 16 ── v1.5: fragment merge — half-thought lines are joined back into
+#       complete, listenable sentences (recap mode only)
+_frags = [
+    {"start": 0.0, "end": 3.0, "speaker": "", "text": "ဒါပေမဲ့ ကလေးပုံမြင်"},
+    {"start": 3.2, "end": 7.0, "speaker": "", "text": "လိုက်တော့ သူမ အံ့ဩသွားပါတယ်။"},
+    {"start": 8.0, "end": 11.0, "speaker": "", "text": "နောက်ထပ် ဝါကျ အပြည့် တစ်ခု ဖြစ်ပါတယ်။"},
+]
+_merged = TimelineExtractor()._merge_fragments([dict(d) for d in _frags])
+ok(len(_merged) == 2 and _merged[0]["text"].endswith("ပါတယ်။"),
+   "fragment lines merged into complete sentences")
+
 print(f"\nALL {checks} CHECKS PASSED → {out}")

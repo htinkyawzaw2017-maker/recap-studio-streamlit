@@ -526,6 +526,7 @@ else:
     st.markdown('</div>', unsafe_allow_html=True)
     if _go:
         SS["logs"] = []
+        _log_lines: list[str] = []
         _pool = make_pool()
         if not demo_script and _pool is None:
             st.error("Gemini Key ထည့်ရန် လိုပါသည် — ဘယ်ဘက် Sidebar မှာ ထည့်ပါ၊ "
@@ -545,12 +546,23 @@ else:
                     _result = {"hook_line1": _data["hook_line1"], "hook_line2": _data["hook_line2"],
                                "dialogues": _data["dialogues"], "coverage": {}}
                 else:
+                    # ⚠️ log_fn ကို st.session_state နဲ့ မချိတ်ရ — analysis က
+                    # နောက်ခံ thread တွေကနေ log ခေါ်တာမို့ session_state ကို
+                    # thread ထဲက ထိရင် "'st.session_state has no key logs'"
+                    # ဆိုပြီး chunk အားလုံး ကျပါတယ် (v1.4.1 fix)။ plain list
+                    # ထဲ စုပြီး ပြီးမှ session ထဲ ကူးထည့်ပါတယ်။
+                    def _log_fn(m):
+                        try:
+                            _log_lines.append(str(m))
+                        except Exception:
+                            pass
                     _result = extract_timeline(
                         "", SS["current_path"], _dur,
                         language=lang, mode="auto", fill_mode=fill_mode, model=model,
                         progress=_prog,
-                        log_fn=lambda m: SS["logs"].append(str(m)),
+                        log_fn=_log_fn,
                         key_ring=_pool)
+                    SS["logs"] = list(_log_lines)
                 SS["dialogues"] = _result.get("dialogues", [])
                 SS["hook1"] = _result.get("hook_line1", "")
                 SS["hook2"] = _result.get("hook_line2", "")
@@ -571,6 +583,11 @@ else:
                 st.rerun()
             except Exception as exc:
                 SS["busy"] = False
+                try:
+                    if _log_lines:
+                        SS["logs"] = list(_log_lines)
+                except Exception:
+                    pass
                 _status.update(label="❌ မအောင်မြင်ပါ", state="error")
                 st.error(str(exc))
                 if SS["logs"]:
