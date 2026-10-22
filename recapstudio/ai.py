@@ -655,6 +655,13 @@ MANDATORY RULES
    A 4-second window is about {four_sec} characters; 8 seconds is about {eight_sec}. Do not exceed
    the actual line window. In Dubbing mode, preserve meaning first and use a concise, idiomatic
    translation rather than rushing; set both hook fields to empty strings.
+3b. PER-MINUTE EXACT FIT (ကွက်တိ): plan your lines in 60-second blocks (0:00-1:00, 1:00-2:00, ...).
+   The TOTAL of all lines inside one block must be speakable within that minute — at most about
+   {int(60 * cps * 0.92)} {lang_word} characters per block, pauses included. Every line must START
+   and END inside the same block; a line may never cross a minute boundary. A line that is too
+   long for its scene is a defect: rewrite it shorter, never let the narrator overrun the scene —
+   the picture changes but the voice would still be finishing the previous scene, which ruins
+   the video. Shorter and exact always beats longer and richer.
 4. STYLE: short, clear, active spoken language. Recap mode should feel cinematic, engaging and
    professionally told. Dubbing mode should sound like a skilled actor speaking the translated
    source line, with matching emotion and no narrator voice. Avoid filler and repeated phrases.
@@ -916,6 +923,8 @@ class TimelineExtractor:
 
         # ── coverage sweep ────────────────────────────────────────────
         dialogues, filled, longest = self._coverage_sweep(dialogues, duration, video_path)
+        # ── per-minute exact fit: no line may overrun its scene/minute ──
+        dialogues, fit_report = self._enforce_minute_fit(dialogues, duration)
         report = self._coverage(dialogues, duration, filled, per_chunk, longest)
         if errors:
             report["warnings"] = errors
@@ -923,7 +932,7 @@ class TimelineExtractor:
                  f"({report['spoken_seconds']}s / {report['total_seconds']}s), "
                  f"{report['lines']} lines, {filled} gaps filled, longest gap {longest:.1f}s")
         return {"hook_line1": hook1, "hook_line2": hook2, "dialogues": dialogues,
-                "coverage": report}
+                "coverage": report, "fit": fit_report}
 
     # ── one chunk ──────────────────────────────────────────────────────
     def _analyze_chunk(self, video_path: str, start: float, end: float,
@@ -1238,6 +1247,116 @@ class TimelineExtractor:
         if not log_prefix:
             self.log(f"Coverage sweep added {added} narration lines")
         return added
+
+    def _enforce_minute_fit(self, dialogues: list[dict],
+                            duration: float) -> tuple[list[dict], dict]:
+        """Per-minute exact fit (owner rule v1.4: "script ကို မိနစ်အလိုက်
+        ကွက်တိ ဖြစ်အောင် ရေးခိုင်းပါ").
+
+        A line whose natural speech overruns its own scene — or a minute
+        block whose lines together overrun the minute — leaves the voice
+        still reading the previous scene while the picture has moved on.
+        Offenders are shortened ONCE here: first an AI rewrite that keeps
+        the natural spoken style and the facts, then a deterministic
+        clause-boundary cut for anything still too long. The voice itself
+        is never sped up (that stays forbidden), and retime only has to
+        absorb the small remainder.
+        """
+        from .tts import chars_per_second, condense_line
+        cps = chars_per_second(self.lang)
+        lines = sorted(dialogues, key=lambda d: float(d.get("start", 0.0)))
+        report = {"checked": len(lines), "fixed_ai": 0, "fixed_cut": 0,
+                  "blocks_adjusted": 0}
+
+        def window(d: dict) -> float:
+            return max(0.4, float(d.get("end", 0.0)) - float(d.get("start", 0.0)))
+
+        targets: dict[int, int] = {}
+        for pos, d in enumerate(lines):
+            est = estimate_speech_seconds(str(d.get("text", "")), self.lang)
+            if est > window(d) * 1.02:
+                targets[pos] = max(10, int(window(d) * cps * 0.95))
+        blocks: dict[int, list[int]] = {}
+        for pos, d in enumerate(lines):
+            blocks.setdefault(int(float(d.get("start", 0.0)) // 60), []).append(pos)
+        for block, positions in blocks.items():
+            block_len = max(1.0, min(60.0, duration - block * 60.0))
+            total = sum(estimate_speech_seconds(str(lines[p].get("text", "")),
+                                                self.lang) for p in positions)
+            if total <= block_len * 1.02:
+                continue
+            report["blocks_adjusted"] += 1
+            by_size = sorted(positions, key=lambda p: -estimate_speech_seconds(
+                str(lines[p].get("text", "")), self.lang))
+            for pos in by_size:
+                if total <= block_len * 1.02:
+                    break
+                est = estimate_speech_seconds(str(lines[pos].get("text", "")), self.lang)
+                goal = max(10, int(len(str(lines[pos].get("text", ""))) * 0.8))
+                if pos in targets:
+                    goal = min(goal, targets[pos])
+                targets[pos] = goal
+                total -= est * 0.2
+        if not targets:
+            return lines, report
+
+        # 1) AI rewrite of just the offending lines (style-preserving)
+        remaining = dict(targets)
+        if self.client is not None:
+            batch = [{"index": pos, "max_chars": targets[pos],
+                      "text": str(lines[pos].get("text", ""))}
+                     for pos in sorted(targets)]
+            listing = "\n".join(
+                f"- index {b['index']} (max {b['max_chars']} characters): {b['text']}"
+                for b in batch)
+            lang_word = "Burmese" if self.lang == "my" else "English"
+            prompt = f"""Shorten these {lang_word} recap lines. Each one is currently TOO LONG to be
+spoken inside its own scene, so the narrator would still be reading it after the picture changed.
+
+{listing}
+
+Rules:
+1. Rewrite each line to at most its max characters. Keep every fact, name and the natural,
+   human spoken style — just say it tighter. Never add generic filler.
+2. Plain text only: no quotes, no brackets, no timestamps.
+3. Return STRICT JSON only: {{"lines": [{{"index": 0, "text": "..."}}]}}"""
+            schema = {"type": "object", "properties": {"lines": {
+                "type": "array", "items": {"type": "object", "properties": {
+                    "index": {"type": "integer"}, "text": {"type": "string"}},
+                    "required": ["index", "text"]}}}, "required": ["lines"]}
+            try:
+                raw = self.client.generate_json(self.model, [prompt], schema,
+                                                temperature=0.3, max_tokens=8192,
+                                                progress=self.progress,
+                                                cancel=self.cancel)
+                data = json.loads(raw[raw.find("{"): raw.rfind("}") + 1])
+                for item in data.get("lines", []):
+                    try:
+                        pos = int(item["index"])
+                    except (KeyError, TypeError, ValueError):
+                        continue
+                    text = re.sub(r"\s+", " ", str(item.get("text", ""))).strip()
+                    if pos in remaining and text and len(text) <= remaining[pos] * 1.08:
+                        lines[pos]["text"] = text
+                        report["fixed_ai"] += 1
+                        del remaining[pos]
+            except CancelledError:
+                raise
+            except Exception as exc:
+                self.log(f"⚠️ minute-fit rewrite failed: {exc}")
+        # 2) deterministic clause cut for anything still too long
+        for pos, max_chars in remaining.items():
+            short, changed = condense_line(str(lines[pos].get("text", "")),
+                                           max_chars / max(1.0, cps), self.lang)
+            if changed and short:
+                lines[pos]["text"] = short
+                report["fixed_cut"] += 1
+        if report["fixed_ai"] or report["fixed_cut"]:
+            self.log(f"✂️ Minute-fit (ကွက်တိ): လိုင်း {report['fixed_ai'] + report['fixed_cut']} ကြောင်း "
+                     f"ကို သူ့အခန်း/မိနစ် အတွင်း ဝင်အောင် ချုံ့ပြီးပါပြီ "
+                     f"(AI rewrite {report['fixed_ai']}, cut {report['fixed_cut']}, "
+                     f"blocks {report['blocks_adjusted']})")
+        return lines, report
 
     def _coverage(self, dialogues: list[dict], duration: float, filled: int,
                   per_chunk: list[dict] | None = None, longest: float = 0.0) -> dict:

@@ -9,8 +9,10 @@ now (owner's decision, 2026-10-22):
   never slowed down, never trimmed to fit;
 * a line's slot on the output timeline is as long as the speech needs;
 * the source video inside the slot is slowed down to match, but never
-  below ``MIN_VIDEO_SPEED`` (0.9x);
-* if even 0.9x is not enough, the last frame is frozen (held) for the
+  below ``MIN_VIDEO_SPEED`` (0.75x since v1.4 — the owner asked for the
+  picture to slow down further so the voice can always finish at its
+  natural pace instead of being cut or the scene ending early);
+* if even 0.75x is not enough, the last frame is frozen (held) for the
   remaining time — sync is exact no matter how long the video is;
 * spans without speech (gaps between lines) keep their original 1.0x
   length, so pauses stay natural.
@@ -30,8 +32,18 @@ from .util import get_logger
 
 log = get_logger("recap.retime")
 
-#: Slowest the picture may go to meet a long line of speech (owner rule).
-MIN_VIDEO_SPEED = 0.9
+#: Slowest the picture may go to meet a long line of speech (owner rule,
+#: v1.4: 0.75x; override with RECAP_RETIME_MIN_SPEED between 0.5 and 0.95).
+def _min_speed() -> float:
+    import os
+    try:
+        value = float(os.getenv("RECAP_RETIME_MIN_SPEED", "0.75"))
+    except (TypeError, ValueError):
+        value = 0.75
+    return max(0.5, min(0.95, value))
+
+
+MIN_VIDEO_SPEED = _min_speed()
 
 
 @dataclass

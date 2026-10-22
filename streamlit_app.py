@@ -127,6 +127,7 @@ SS.setdefault("dialogues", [])       # AI timeline (raw)
 SS.setdefault("hook1", "")
 SS.setdefault("hook2", "")
 SS.setdefault("coverage", None)
+SS.setdefault("fit", None)
 SS.setdefault("script_version", 0)   # bump → editor resets from dialogues
 SS.setdefault("script_confirmed", False)
 SS.setdefault("edited_dialogues", [])
@@ -554,6 +555,7 @@ else:
                 SS["hook1"] = _result.get("hook_line1", "")
                 SS["hook2"] = _result.get("hook_line2", "")
                 SS["coverage"] = _result.get("coverage")
+                SS["fit"] = _result.get("fit")
                 SS["edited_dialogues"] = []
                 SS["script_confirmed"] = False
                 SS["outputs"] = None
@@ -577,6 +579,9 @@ else:
     if SS["coverage"]:
         st.caption(f"📊 Coverage: {SS['coverage'].get('coverage_percent', '—')}% • "
                    f"လိုင်း {SS['coverage'].get('lines', len(SS['dialogues']))} လိုင်း")
+    if SS.get("fit") and (SS["fit"].get("fixed_ai") or SS["fit"].get("fixed_cut")):
+        st.caption(f"✂️ မိနစ်ကိုက် ကွက်တိ: လိုင်း {SS['fit'].get('fixed_ai', 0) + SS['fit'].get('fixed_cut', 0)} ကြောင်းကို "
+                   f"သူ့အခန်း အတွင်း ဝင်အောင် ချုံ့ပြီးပါပြီ (ရှည်လွန်းရင် အသံ နောက်ကျပြီး ရုပ်နဲ့ လွဲတတ်လို့ပါ)")
 st.markdown('</div>', unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -587,7 +592,7 @@ if SS["dialogues"]:
     st.markdown("### 4️⃣ ✍️ Recap Script ပြင်ရန် — အတည်ပြုပြီးမှ Render သွားပါမယ်")
     st.caption("လိုင်းတိုင်းရဲ့ စချိန်/ဆုံးချိန်/စာသားကို ပြင်နိုင်ပါတယ်။ လိုင်းအသစ် ထည့်/ဖျက်လည်း ရပါတယ်။ "
                "အသံသည် အမြဲ သဘာဝနှုန်း 1.0x ပါ — ⚠️ ရှည်လွန်းသော လိုင်းအတွက်တော့ အသံကို မမြန်ဘဲ "
-               "ရုပ်ကိုပဲ အများဆုံး 0.9x အထိ နှေးပေးပါမယ်။")
+               "ရုပ်ကိုပဲ လိုသလောက် နှေးပေးပါမယ် (0.75x အထိ)။")
     _cfg = SS.get("render_cfg", {"lang": "my"})
     _lang = _cfg.get("lang", "my")
     _cps = chars_per_second(_lang)
@@ -627,7 +632,7 @@ if SS["dialogues"]:
                  > max(0.1, _sf(r.get("end")) - _sf(r.get("start")))]
         if _long:
             st.info(f"လိုင်း {len(_long)} လိုင်း ရှည်နေပါတယ် (#{', #'.join(map(str, _long[:10]))}) — "
-                    "စာကို မချုံ့ပါ၊ အသံ 1.0x အတိုင်းထားပြီး render မှာ ရုပ်ကို အများဆုံး 0.9x အထိ နှေးပေးပါမယ်။")
+                    "စာကို မချုံ့ပါ၊ အသံ 1.0x အတိုင်းထားပြီး render မှာ ရုပ်ကို လိုသလောက် နှေးပေးပါမယ် (0.75x အထိ)။")
         else:
             st.success("✅ လိုင်းအားလုံး သဘာဝနှုန်းနဲ့ ကိုက်ညီပါတယ်")
     st.markdown('<div class="okbtn">', unsafe_allow_html=True)
@@ -688,7 +693,7 @@ else:
             _alt_cfg = _fallback_voice(_lang, _cfg.get("voice_key", ""))
             _engine = TTSEngine()
             # အသံ = အမြဲ သဘာဝနှုန်း 1.0x (လုံးဝ မမြန်ပါ)။ စာကြောင်း ရှည်ရင်
-            # ရုပ်ကို 0.9x အထိ နှေး/frame ရပ်ပြီး အသံနဲ့ တိတိကျကျ ကိုက်ညှိပါတယ်။
+            # ရုပ်ကို 0.75x အထိ နှေး/frame ရပ်ပြီး အသံနဲ့ တိတိကျကျ ကိုက်ညှိပါတယ်။
             _mix = _engine.build_narration(
                 dialogues=SS["edited_dialogues"], voice_cfg=_voice_cfg, duration=_dur,
                 work_dir=_job, tag="st", progress=_rp,
@@ -701,7 +706,6 @@ else:
             _narration = _job / "narration.mp3"
             master_audio(_mix.audio_path, _narration, _total,
                          loudnorm=recap_config.settings.loudness_normalize)
-            _ass = None
             _srt = _job / "recap.srt"
             export_srt(_dlgs, _srt)
             _aspect = _cfg.get("aspect", "မူရင်း")
@@ -713,36 +717,80 @@ else:
                 _size, _reframe = (1080, 1080), "Smart Blur Background"
             else:
                 _size, _reframe = (int(_info["width"]), int(_info["height"])), "Original (no reframe)"
-            if _cfg.get("sub_on", True):
-                _ass = _job / "recap.ass"
-                build_ass(dialogues=_dlgs, duration=_total, ass_path=_ass,
-                          hook_line1=SS["hook1"], hook_line2=SS["hook2"],
-                          font_size=int(_size[0] * 0.052), v_margin=int(_size[1] * 0.08),
-                          hex_color="#00F2FE", play_res=_size)
             _render_in = SS["current_path"]
             if _mix.spans and (abs(_total - _dur) > 0.05
                                or any(sp.speed < 0.999 or sp.freeze > 0.05 for sp in _mix.spans)):
-                _status.update(label="🎞️ အသံနဲ့ ကိုက်အောင် ရုပ်ကို ချိန်နေပါသည်… (အများဆုံး 0.9x)")
+                _status.update(label="🎞️ အသံနဲ့ ကိုက်အောင် ရုပ်ကို ချိန်နေပါသည်… (အသံ ပြီးတဲ့အထိ နှေးပေးသည်)")
                 _rt = _job / "retimed.mp4"
                 retime_video(SS["current_path"], _mix.spans, _rt, progress=_rp)
                 _render_in = str(_rt)
             _status.update(label="🎬 ဗီဒီယို Render လုပ်နေပါသည်… (အရှည်ပေါ် မူတည်ပြီး ကြာနိုင်ပါသည်)")
             _out = _job / "recap_final.mp4"
+            _plain = _job / "recap_plain.mp4"
             _res = render_master(
-                _render_in, str(_narration), str(_out),
-                ass_path=str(_ass) if _ass else None,
+                _render_in, str(_narration), str(_plain),
+                ass_path=None,
                 reframe=_reframe, mute_original=bool(_cfg.get("mute_org", True)),
                 mirror=bool(_cfg.get("mirror", False)),
                 quality="fast", target_size=_size, duration=_total, progress=_rp)
+            # ── စာတန်း ထည့်ခြင်း (v1.4): libass က မြန်မာ အက္ခရာ ပုံသွင်း
+            # (shaping) မမှန်လို့ Pillow+Raqm နဲ့ ပုံဆွဲ ထည့်တဲ့ နည်း သုံးပါတယ်။
+            _sub_note = ""
+            if _cfg.get("sub_on", True):
+                from recapstudio import subpng as _subpng
+                _status.update(label="📝 စာတန်း ထည့်နေပါသည်… (မြန်မာ ပုံသွင်း အမှန် PNG နည်း)")
+                if _subpng.raqm_available():
+                    _subs_dir = _job / "subs"
+                    _track = _subpng.build_subtitle_track(
+                        _dlgs, width=_size[0], height=_size[1], duration=_total,
+                        work_dir=_subs_dir, color="#00F2FE")
+                    _hook_png = None
+                    if SS["hook1"] or SS["hook2"]:
+                        _hook_png = _subpng.render_hook_png(
+                            SS["hook1"], SS["hook2"], _subs_dir / "hook.png",
+                            width=_size[0])
+                    if _track is not None or _hook_png is not None:
+                        _th = int(get_video_info(str(_track))["height"]) if _track else 0
+                        _subpng.burn_subtitles(
+                            str(_plain), str(_out), track=_track,
+                            track_height=_th, height=_size[1],
+                            hook_png=_hook_png, duration=_total, progress=_rp)
+                        _sub_note = "စာတန်း: မြန်မာ အက္ခရာ ပုံသွင်း အမှန်ရတဲ့ PNG (Raqm) နည်းနဲ့ ထည့်ထားပါတယ်"
+                    else:
+                        _plain.replace(_out)
+                else:
+                    # fallback (Raqm မရှိတဲ့ server): ASS နည်းဟောင်း
+                    _ass = _job / "recap.ass"
+                    build_ass(dialogues=_dlgs, duration=_total, ass_path=_ass,
+                              hook_line1=SS["hook1"], hook_line2=SS["hook2"],
+                              font_size=int(_size[0] * 0.052),
+                              v_margin=int(_size[1] * 0.08),
+                              hex_color="#00F2FE", play_res=_size)
+                    render_master(
+                        _render_in, str(_narration), str(_out),
+                        ass_path=str(_ass),
+                        reframe=_reframe, mute_original=bool(_cfg.get("mute_org", True)),
+                        mirror=bool(_cfg.get("mirror", False)),
+                        quality="fast", target_size=_size, duration=_total, progress=_rp)
+                    _sub_note = "⚠️ Raqm မရှိလို့ စာတန်းကို ASS နည်းဟောင်းနဲ့ ထည့်ထားပါတယ်"
+            else:
+                _plain.replace(_out)
+            if not _out.exists() and _plain.exists():
+                _plain.replace(_out)
             SS["outputs"] = {"mp4": str(_out), "srt": str(_srt), "mp3": str(_narration),
                               "size": _out.stat().st_size if _out.exists() else 0,
                               "duration": _total,
-                              "warnings": list(_res.get("warnings", [])) + list(_mix.warnings)}
+                              "warnings": list(_res.get("warnings", [])) + list(_mix.warnings)
+                              + ([_sub_note] if _sub_note else [])}
             # job ပြီးတာနဲ့ ယာယီဖိုင်တွေ ရှင်း (final ဖိုင် ၃ ခုပဲ ထား)
             for _f in list(_job.iterdir()):
                 if _f.name not in {"recap_final.mp4", "recap.srt", "narration.mp3"}:
                     try:
-                        _f.unlink(missing_ok=True)
+                        if _f.is_dir():
+                            import shutil as _sh2
+                            _sh2.rmtree(_f, ignore_errors=True)
+                        else:
+                            _f.unlink(missing_ok=True)
                     except Exception:
                         pass
             SS["busy"] = False

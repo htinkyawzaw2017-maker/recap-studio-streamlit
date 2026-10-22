@@ -10,7 +10,7 @@ and ``atempo`` compression. That is gone. Now:
     * when a line needs more time than its source window has, the
       *picture* yields instead: ``build_narration(..., retime=True)``
       returns a retime plan (see :mod:`recapstudio.retime`) that slows
-      the video inside the slot to at most 0.9x and freezes the last
+      the video inside the slot (0.75x by default) and freezes the last
       frame for any remainder, so audio and video stay in sync no
       matter how long the video is.
 
@@ -627,7 +627,8 @@ class TTSEngine:
         the master audio and the retimed video share one timeline and can
         never drift apart, whatever the source length.
         """
-        from .retime import compute_spans, retimed_dialogues, total_duration
+        from .retime import (MIN_VIDEO_SPEED, compute_spans, retimed_dialogues,
+                             total_duration)
 
         windows: list[tuple[float, float, float, int]] = []
         for line in planned:
@@ -700,7 +701,7 @@ class TTSEngine:
         if slowed:
             warnings.append(
                 f"အသံ 1.0x အတိအကျ ထားပြီး စာကြောင်း {len(slowed)} ကြောင်းအတွက် "
-                f"ရုပ်ကို အနည်းဆုံး 0.9x အထိ နှေးထားပါသည်"
+                f"ရုပ်ကို အနည်းဆုံး {MIN_VIDEO_SPEED:g}x အထိ နှေးထားပါသည်"
                 + (f" (နောက်ဆုံး frame ရပ်၍ {frozen:.1f}s ဖြည့်ထားသည်)" if frozen > 0.05 else ""))
         # dialogues in the same order plan_lines consumed them
         ordered = [d for d in sorted(dialogues, key=lambda d: float(d.get("start", 0.0) or 0.0))

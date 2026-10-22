@@ -82,7 +82,7 @@ res = render_master(str(src), str(narration), str(out), ass_path=str(ass),
 ok(out.exists() and out.stat().st_size > 5000, f"final MP4 rendered ({out.stat().st_size} bytes)")
 # 7 ── retime: voice stays 1.0x, picture slows to at most 0.9x + freeze
 from recapstudio.media import get_media_duration
-from recapstudio.retime import retime_video
+from recapstudio.retime import MIN_VIDEO_SPEED as _MVS, retime_video
 long_text = "ဒီဇာတ်လမ်းမှာ သူရဲကောင်းတစ်ယောက် ရွာကို ကယ်တင်ဖို့ တောင်ပေါ်ကို တက်သွားပါတယ် " * 3
 rt_dialogues = [
     {"start": 0.0, "end": 6.0, "speaker": "Recap", "text": long_text},
@@ -90,8 +90,8 @@ rt_dialogues = [
 ]
 rt_mix = engine.build_narration(dialogues=rt_dialogues, voice_cfg=_voice_config("my", "thiha"),
                                 duration=info["duration"], work_dir=work, tag="rt", retime=True)
-ok(bool(rt_mix.spans) and all(0.9 <= sp.speed <= 1.0 for sp in rt_mix.spans),
-   "retime speeds stay within 0.9–1.0x")
+ok(bool(rt_mix.spans) and all(_MVS - 0.001 <= sp.speed <= 1.0 for sp in rt_mix.spans),
+   f"retime speeds stay within {_MVS}–1.0x")
 ok(all(pl.tts_rate == "+0%" and pl.tempo == 1.0 for pl in rt_mix.planned),
    "voice is never speed-adjusted (always natural 1.0x)")
 ok(rt_mix.duration > info["duration"], "long line kept in full — output runs longer")
@@ -163,5 +163,48 @@ _conv = work / "padded.wav"
 ok(engine._convert(_padded, _conv, 1.0, None)
    and get_media_duration(str(_conv)) < 1.15,
    "leading silence stripped from TTS clips")
+
+# 12 ── v1.4: per-minute exact fit (ကွက်တိ) — an over-long line must be
+#       shortened to its scene instead of overrunning into the next scene
+from recapstudio.ai import TimelineExtractor
+from recapstudio.util import estimate_speech_seconds
+_ext = TimelineExtractor()
+_bad = [
+    {"start": 0.0, "end": 5.0, "speaker": "", "text": long_text},
+    {"start": 5.0, "end": 12.0, "speaker": "",
+     "text": "နောက်ဆုံးမှာ အားလုံး ပျော်ရွှင်စွာ နေထိုင်ကြပါတယ်။"},
+]
+_fitted, _rep = _ext._enforce_minute_fit([dict(d) for d in _bad], 12.0)
+ok(_rep["fixed_ai"] + _rep["fixed_cut"] >= 1,
+   "minute-fit shortened the over-long line")
+ok(estimate_speech_seconds(_fitted[0]["text"], "my") <= 5.0 * 1.15,
+   "fitted line now fits its own scene window")
+
+# 13 ── v1.4: retime floor — picture slows further before any freeze
+from recapstudio.retime import compute_spans
+ok(_MVS <= 0.75, f"retime floor allows deeper slowdown ({_MVS}x)")
+_sp1 = compute_spans([(0.0, 4.0, 5.2, 0)], 4.0)
+ok(abs(_sp1[0].speed - 4.0 / 5.2) < 0.01 and _sp1[0].freeze == 0.0,
+   "5.2s speech in a 4s scene: picture slows, no freeze needed")
+_sp2 = compute_spans([(0.0, 4.0, 6.0, 0)], 4.0)
+ok(abs(_sp2[0].speed - _MVS) < 0.01 and _sp2[0].freeze > 0.5,
+   "extreme overflow: floor speed first, freeze only the remainder")
+
+# 14 ── v1.4: PNG/Raqm subtitle burn (libass shapes Myanmar incorrectly in
+#       our deploy environments; shaping itself is A/B-verified visually)
+from recapstudio import subpng
+ok(subpng.raqm_available(), "Raqm shaping engine available")
+_subs_dir = work / "subs"
+_track = subpng.build_subtitle_track(
+    dialogues, width=int(info["width"]), height=int(info["height"]),
+    duration=info["duration"], work_dir=_subs_dir)
+ok(_track is not None and Path(_track).exists(), "PNG subtitle track built")
+_th = int(get_video_info(str(_track))["height"])
+_burned = work / "final_pngsubs.mp4"
+subpng.burn_subtitles(str(out), str(_burned), track=_track, track_height=_th,
+                      height=int(info["height"]), duration=info["duration"])
+ok(_burned.exists()
+   and abs(get_media_duration(str(_burned)) - info["duration"]) < 0.4,
+   "PNG subtitles burned onto the video, duration kept")
 
 print(f"\nALL {checks} CHECKS PASSED → {out}")
