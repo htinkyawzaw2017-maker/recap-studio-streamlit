@@ -260,5 +260,5 @@ def export_srt(dialogues: list[dict], srt_path: str | Path, hook: bool = False) 
         if not text:
             continue
         out.append(f"{idx}\n{ts(start)} --> {ts(max(end, start + 0.6))}\n{text}\n")
-    srt_path.write_text("\n".join(out), encoding="utf-8")
+    srt_path.write_text("\n".join(out), encoding="utf-8-sig")
     return srt_path

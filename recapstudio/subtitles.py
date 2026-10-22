@@ -70,8 +70,8 @@ BG_STYLES = {
 
 def build_ass(dialogues: list[dict[str, Any]], duration: float, ass_path: str | Path,
               *, hook_line1: str = "", hook_line2: str = "",
-              font_size: int = 42, font_family: str = MM_FONT_FAMILY,
-              v_margin: int = 280, hex_color: str = "#00F2FE",
+              font_size: int = 0, font_family: str = MM_FONT_FAMILY,
+              v_margin: int = 90, hex_color: str = "#00F2FE",
               bg_style: str = "Solid Box", play_res: tuple[int, int] = (720, 1280),
               hook_seconds: float = 0.0, subtitle_alpha: int = 0,
               stroke_width: float = 0.0, uppercase_hook: bool = False,
@@ -79,6 +79,21 @@ def build_ass(dialogues: list[dict[str, Any]], duration: float, ass_path: str | 
     """Write an ASS file. ``hook_seconds=0`` means "show for the whole video"."""
     ass_path = Path(ass_path)
     width, height = play_res
+    if not font_size:
+        # scale with the frame: ~5.2% of the width, clamped to sane bounds.
+        # A fixed 42px was huge on small frames and tiny on big ones, which
+        # is what made subtitles appear to swallow the whole screen.
+        font_size = max(26, min(72, int(round(width * 0.052))))
+    # Make sure a Myanmar-capable font actually exists before libass goes
+    # looking for one (triggers the bundled/download resolution in fonts.py;
+    # without this the Cloud deploy — whose repo has no .ttf files — fell
+    # back to a font with no Myanmar glyphs and rendered broken text).
+    try:
+        from .fonts import myanmar_font_path
+        myanmar_font_path()
+        myanmar_font_path(bold=True)
+    except Exception:
+        pass
     width_percent = max(60, min(96, int(width_percent)))
     side_margin = int(round(width * (100 - width_percent) / 200.0))
     primary = hex_to_ass(hex_color)
@@ -140,7 +155,7 @@ def build_ass(dialogues: list[dict[str, Any]], duration: float, ass_path: str | 
         end = min(max(end, start + 0.6), max(duration, start + 0.6))
         lines.append(
             f"Dialogue: 0,{_fmt_time(start)},{_fmt_time(end)},SubtitleStyle,,0,0,0,,"
-            f"{{\\fad(90,90)\\t(0,110,\\fscx108\\fscy108)\\t(110,230,\\fscx100\\fscy100)}}{text}"
+            f"{{\\fad(90,90)}}{text}"
         )
         written += 1
 

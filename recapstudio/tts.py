@@ -1,19 +1,18 @@
-"""Voice synthesis with drift-free timeline fitting.
+"""Voice synthesis — natural 1.0x voice, audio-led timeline.
 
-The two user visible bugs this module removes
-------------------------------------------------
-*"dubbing only speaks part of the video"* — the old mixer computed each
-line's available window as ``next_start - cursor`` and then clamped it with
-``max(0.3, ...)``. The moment one line ran long, every following line was
-cut down to a 0.3 second blip (or skipped entirely) and the tail of the video
-was left silent. Here every line is *fitted* instead of dropped:
+Owner rule (2026-10-22): the narration used to race on one line and crawl
+on the next because over-long lines were rescued by edge-tts rate boosts
+and ``atempo`` compression. That is gone. Now:
 
-    * natural synthesis first (best quality),
-    * if it overruns its window → re-synthesise slightly faster (edge-tts
-      "rate" keeps the pitch natural),
-    * still overrunning → ``atempo`` time compression (pitch preserving),
-    * only as an absolute last resort a fade-out trim, and that case is
-      reported to the UI as a warning.
+    * every line is synthesised ONCE at the voice's natural rate (+0%)
+      and used exactly as recorded — never sped up, never slowed down,
+      never trimmed to fit a window;
+    * when a line needs more time than its source window has, the
+      *picture* yields instead: ``build_narration(..., retime=True)``
+      returns a retime plan (see :mod:`recapstudio.retime`) that slows
+      the video inside the slot to at most 0.9x and freezes the last
+      frame for any remainder, so audio and video stay in sync no
+      matter how long the video is.
 
 *"rendering takes forever"* — every line used to be synthesised **one at a
 time**, each with its own fresh asyncio event loop and websocket handshake.
@@ -210,6 +209,9 @@ class PlannedLine:
     #: timeline can never drift later and cut the end of the video) or the
     #: video length for the final line.
     hard_limit_seconds: float = 0.0
+    #: end of this line's window on the SOURCE timeline (next line's start,
+    #: the declared end in strict mode, or the video duration)
+    window_end_seconds: float = 0.0
     tempo: float = 1.0
     tts_rate: str = "+0%"
     speech_seconds: float = 0.0
@@ -233,6 +235,10 @@ class MixResult:
     audio_path: str
     duration: float
     planned: list[PlannedLine] = field(default_factory=list)
+    #: retime plan (recapstudio.retime.Span list) when built with retime=True
+    spans: list = field(default_factory=list)
+    #: dialogues remapped onto the retimed timeline (subtitles/SRT timing)
+    retimed_dialogues: list = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     #: windows of the finished audio that contain no speech at all
     gaps: list[dict] = field(default_factory=list)
@@ -404,20 +410,20 @@ class TTSEngine:
                 else:
                     hard = max(target, min(max(0.4, duration - 0.05 - start), target + 3.0))
             planned.append(PlannedLine(index=idx, start=start, end=end, text=text,
-                                       target_seconds=target, hard_limit_seconds=hard))
+                                       target_seconds=target, hard_limit_seconds=hard,
+                                       window_end_seconds=window_end))
         return planned
 
     def _fit_to_window(self, line: PlannedLine, voice_cfg: dict[str, str],
                        work_dir: Path, tag: str, *, strict_timing: bool = False) -> Optional[Path]:
-        """Synthesise ``line`` and make sure it fits ``line.target_seconds``.
+        """Synthesise ``line`` at its NATURAL speed — and keep it that way.
 
-        Strategy (best sounding first):
-          1. natural take
-          2. a faster take at synthesis time (keeps pitch/timbre natural)
-          3. pitch preserving ``atempo`` compression
-          4. fade-out trim (last resort - reported as a warning)
+        Owner rule (2026-10-22): the voice is always 1.0x. There is no
+        rate boost, no ``atempo`` and no trim-to-window here any more. If
+        the natural take is longer than the line's window, the take is
+        still used in full; the retime plan (build_narration with
+        ``retime=True``) slows/freezes the *video* to meet it instead.
         """
-        target = max(0.4, line.target_seconds)
         raw = work_dir / f"raw_{tag}_{line.index}.mp3"
         if not self.synthesize(line.text, voice_cfg, raw):
             line.skipped = True
@@ -429,99 +435,21 @@ class TTSEngine:
             line.skipped = True
             line.reason = "empty audio"
             return None
+        line.tempo = 1.0
+        line.tts_rate = "+0%"
         line.speech_seconds = raw_seconds
-
-        # Dialogue dubbing is intentionally conservative: fit each line to
-        # its own spoken interval, allow at most a small 12% pace adjustment,
-        # and fail the dub rather than silently cutting words or running late.
-        natural_tolerance = 1.02 if strict_timing else 1.03
-        if raw_seconds <= target * natural_tolerance:
-            line.tempo = 1.0
-            line.reason = ""
-        else:
-            ratio = raw_seconds / target
-            if strict_timing:
-                boost = min(12.0, max(2.0, (ratio - 1.0) * 100.0 + 1.0))
-                faster = work_dir / f"raw_{tag}_{line.index}_fast.mp3"
-                applied_boost = 0.0
-                if self.synthesize(line.text, voice_cfg, faster,
-                                   rate_override=_percent_to_rate(boost)):
-                    fast_seconds = get_media_duration(faster)
-                    if fast_seconds > 0.05:
-                        raw.unlink(missing_ok=True)
-                        raw, raw_seconds = faster, fast_seconds
-                        line.speech_seconds = fast_seconds
-                        line.tts_rate = _percent_to_rate(boost)
-                        applied_boost = boost
-                        line.reason = f"အသံ {boost:.0f}% ဖြင့် အနည်းငယ် ချိန်ထားပါသည်"
-                        ratio = raw_seconds / target
-                    else:
-                        faster.unlink(missing_ok=True)
-                        line.tts_rate = "+0%"
-                else:
-                    faster.unlink(missing_ok=True)
-                    line.tts_rate = "+0%"
-                # `rate_override` and atempo multiply. Budget their product so
-                # combined speed-up never exceeds 12%, even when both stages
-                # are needed; otherwise a nominal 12% adjustment could turn
-                # into a very rushed ~25% take.
-                tempo_cap = 1.12 / (1.0 + applied_boost / 100.0)
-                line.tempo = min(tempo_cap, max(1.0, ratio))
-                if line.tempo > 1.02:
-                    line.reason += f" · pitch-preserving {line.tempo:.2f}x"
-                if raw_seconds / line.tempo > target * 1.02:
-                    raw.unlink(missing_ok=True)
-                    line.skipped = True
-                    line.reason = "spoken text cannot fit this dialogue window at a natural pace"
-                    return None
-            else:
-                # Recap lines may use more expressive time fitting; they are
-                # not locked to source-speaker lip timing.
-                if ratio <= 1.35:
-                    boost = min(45.0, (ratio - 1.0) * 100.0 + 5.0)
-                    line.tts_rate = _percent_to_rate(boost)
-                    faster = work_dir / f"raw_{tag}_{line.index}_fast.mp3"
-                    if self.synthesize(line.text, voice_cfg, faster, rate_override=line.tts_rate):
-                        fast_seconds = get_media_duration(faster)
-                        if fast_seconds > 0.05:
-                            raw.unlink(missing_ok=True)
-                            raw, raw_seconds = faster, fast_seconds
-                            line.speech_seconds = fast_seconds
-                            line.reason = f"အသံ {boost:.0f}% မြန်စွာ ဖတ်ထားပါသည်"
-                            ratio = raw_seconds / target
-                        else:
-                            faster.unlink(missing_ok=True)
-                if ratio > 1.03:
-                    line.tempo = min(config.settings.max_tempo, ratio)
-                    if line.tempo > 1.02:
-                        extra = (f" + atempo {line.tempo:.2f}x" if line.tts_rate != "+0%"
-                                 else f"atempo {line.tempo:.2f}x")
-                        line.reason = (line.reason + extra) if line.reason else extra
-                if line.tempo >= config.settings.max_tempo and raw_seconds / line.tempo > target * 1.02:
-                    line.trimmed = True
-                    line.reason += " • အစွန်း အနည်းငယ် ဖြတ်ထားပါသည်"
-
+        window = max(0.0, (line.window_end_seconds or line.target_seconds) - 0.0)
+        if window and raw_seconds > window + 0.05:
+            line.reason = (f"စာကြောင်း ရှည်သဖြင့် ရုပ်ကို နှေးပေးထားပါသည် "
+                           f"(အသံ {raw_seconds:.1f}s > ကွက် {window:.1f}s)")
         out_wav = work_dir / f"clip_{tag}_{line.index}.wav"
-        # Hard ceiling is the next speaker start (or source speech end in strict mode).
-        hard_limit = max(0.4, line.hard_limit_seconds or target)
-        if not self._convert(raw, out_wav, line.tempo, hard_limit):
-            line.trimmed = True
-            if not self._convert(raw, out_wav, line.tempo, min(target, hard_limit)):
-                raw.unlink(missing_ok=True)
-                line.skipped = True
-                line.reason = "audio conversion failed"
-                return None
+        if not self._convert(raw, out_wav, 1.0, None):
+            raw.unlink(missing_ok=True)
+            line.skipped = True
+            line.reason = "audio conversion failed"
+            return None
         raw.unlink(missing_ok=True)
-        produced = get_media_duration(out_wav)
-        if produced > hard_limit + 0.05:
-            # ffmpeg occasionally overshoots by a frame; trim once more so the
-            # assembly below is exact.
-            if not self._convert(out_wav, out_wav.with_suffix(".trim.wav"), 1.0, hard_limit):
-                line.trimmed = True
-            else:
-                out_wav.with_suffix(".trim.wav").replace(out_wav)
-            produced = get_media_duration(out_wav)
-        line.speech_seconds = produced
+        line.speech_seconds = get_media_duration(out_wav) or raw_seconds
         return out_wav
 
     # ── main entry ─────────────────────────────────────────────────────
@@ -530,7 +458,8 @@ class TTSEngine:
                         progress: ProgressFn = None,
                         cancel: Optional[Callable[[], bool]] = None,
                         fallback_voice_cfg: dict[str, str] | None = None,
-                        strict_timing: bool = False) -> MixResult:
+                        strict_timing: bool = False,
+                        retime: bool = False) -> MixResult:
         lang = voice_cfg.get("lang", "my")
         work_dir = Path(work_dir)
         work_dir.mkdir(parents=True, exist_ok=True)
@@ -558,21 +487,15 @@ class TTSEngine:
         def synth_one(line: PlannedLine) -> tuple[int, Optional[Path]]:
             if cancel and cancel():
                 raise CancelledError("အလုပ်ကို ရပ်တန့်လိုက်ပါပြီ")
+            # Natural 1.0x takes depend only on (voice, rate, pitch, text):
+            # a cached take stays valid whatever the timeline windows are.
             cache_key = _hash_key(voice_cfg["voice"], voice_cfg.get("rate", "+0%"),
-                                  voice_cfg.get("pitch", "+0Hz"), line.text,
-                                  f"{line.target_seconds:.2f}",
-                                  f"{line.hard_limit_seconds:.2f}",
-                                  "strict" if strict_timing else "flexible")
+                                  voice_cfg.get("pitch", "+0Hz"), line.text, "natural1x")
             cached = self.cache_dir / f"{cache_key}.wav"
             if cached.exists() and cached.stat().st_size > 500:
-                cached_seconds = get_media_duration(cached)
-                if (not strict_timing or
-                        (cached_seconds <= line.hard_limit_seconds + 0.05 and
-                         cached_seconds <= line.target_seconds * 1.02)):
-                    line.speech_seconds = cached_seconds
+                line.speech_seconds = get_media_duration(cached)
+                if line.speech_seconds > 0.05:
                     return line.index, cached
-                log.warning("discarding cached dubbing line that exceeds its source window: %s", cached.name)
-                cached.unlink(missing_ok=True)
             produced = self._fit_to_window(line, voice_cfg, work_dir, tag,
                                            strict_timing=strict_timing)
             if produced is None and fallback_voice_cfg:
@@ -615,16 +538,6 @@ class TTSEngine:
                              f"({human_time(duration * (done / total))} / {human_time(duration)})")
 
         skipped = [line for line in planned if line.skipped or line.index not in clips]
-        strict_trims = [line for line in planned if strict_timing and line.trimmed]
-        if strict_timing and (skipped or strict_trims):
-            failed = skipped + [line for line in strict_trims if line not in skipped]
-            labels = ", ".join(f"#{line.index + 1} ({line.start:.1f}s)" for line in failed[:6])
-            raise RuntimeError(
-                f"Dialogue Dubbing အချိန်ကိုက် စစ်ဆေးမှု မအောင်မြင်ပါ — "
-                f"လိုင်း {len(failed)} ခုကို သဘာဝကျသောနှုန်းဖြင့် မဖြည့်နိုင်ပါ ({labels})။ "
-                "အသံလွတ်/စကားပြတ်/နောက်ကျသော output မထုတ်ရန် render ကို ရပ်လိုက်ပါသည်။ "
-                "Timeline Editor တွင် ထိုစာကြောင်းကို တိုတိုပြင်ပါ သို့မဟုတ် speech window ကို တိုးပါ။"
-            )
         if skipped and not clips:
             # Every single line failed: telling the user "some lines failed"
             # here would be misleading, the video would be mute.
@@ -637,6 +550,10 @@ class TTSEngine:
             warnings.append(f"အသံသွင်း၍ မရသော လိုင်း {len(skipped)} ခု (voice/network) - "
                             "ကျန် လိုင်းများ ဆက်လက် ထွက်ရှိပါမည်။")
             log.warning("skipped %d lines during TTS", len(skipped))
+
+        if retime:
+            return self._assemble_retimed(planned, clips, dialogues, duration,
+                                          work_dir, tag, progress, warnings)
 
         # ── assemble: silence gaps + clips, exactly `duration` long ─────
         if progress:
@@ -651,27 +568,17 @@ class TTSEngine:
             clip = clips.get(line.index)
             if clip is None:
                 continue
-            gap = line.start - cursor
-            if gap > 0.02:
+            # sequential placement: a natural take is never cut, so a line
+            # that runs long simply starts the next one right after it
+            place_start = max(line.start, cursor)
+            if place_start > cursor + 0.02:
                 gap_file = work_dir / f"gap_{tag}_{line.index}.wav"
-                make_silence_wav(gap, gap_file)
+                make_silence_wav(place_start - cursor, gap_file)
                 segments.append(gap_file)
-                cursor = line.start
-            elif gap < -0.02:
-                # The fitting above guarantees this cannot happen; if it ever
-                # did we would rather log it than silently drift out of sync.
-                log.warning("timeline overlap of %.3fs at line %d", -gap, line.index)
-                cursor = line.start
             segments.append(clip)
             length = get_media_duration(clip) or line.target_seconds
-            if length > (line.hard_limit_seconds or length) + 0.05:
-                # safety net: never let one line push the rest of the timeline
-                log.warning("clip %d overruns its window by %.2fs - trimming",
-                            line.index, length - line.hard_limit_seconds)
-                length = line.hard_limit_seconds
-                line.trimmed = True
-            placed.append((line.start, line.start + length))
-            cursor += length
+            placed.append((place_start, place_start + length))
+            cursor = place_start + length
 
         if cursor < duration - 0.02:
             tail = work_dir / f"tail_{tag}.wav"
@@ -704,6 +611,97 @@ class TTSEngine:
         spoken = sum(max(0.0, e - s) for s, e in placed)
         return MixResult(str(final_wav), get_media_duration(final_wav), planned, warnings,
                          gaps=silent_windows, spoken_seconds=spoken)
+
+    def _assemble_retimed(self, planned: list[PlannedLine], clips: dict[int, Path],
+                          dialogues: list[dict], duration: float, work_dir: Path,
+                          tag: str, progress: ProgressFn,
+                          warnings: list[str]) -> MixResult:
+        """Assemble the narration on the AUDIO-LED (retimed) timeline.
+
+        Every natural take is placed at its slot start; the slot is exactly
+        as long as the retime plan says (slowed picture / frozen tail), so
+        the master audio and the retimed video share one timeline and can
+        never drift apart, whatever the source length.
+        """
+        from .retime import compute_spans, retimed_dialogues, total_duration
+
+        windows: list[tuple[float, float, float, int]] = []
+        for line in planned:
+            clip = clips.get(line.index)
+            if clip is None:
+                continue
+            speech = get_media_duration(clip) or line.speech_seconds
+            line.speech_seconds = speech
+            w_end = line.window_end_seconds or (line.start + line.target_seconds)
+            windows.append((line.start, max(w_end, line.start + 0.05), speech, line.index))
+        spans = compute_spans(windows, duration)
+        total = total_duration(spans)
+        span_by_line = {sp.line_index: sp for sp in spans if sp.line_index >= 0}
+
+        if progress:
+            progress(82, "🧵 အသံကို သဘာဝနှုန်း 1.0x ဖြင့် Timeline အသစ်တွင် ပေါင်းစပ်နေပါသည်...")
+        segments: list[Path] = []
+        placed: list[tuple[float, float]] = []
+        cursor = 0.0
+        for line in planned:
+            clip = clips.get(line.index)
+            span = span_by_line.get(line.index)
+            if clip is None or span is None:
+                continue
+            if span.slot_start > cursor + 0.02:
+                gap_file = work_dir / f"rgap_{tag}_{line.index}.wav"
+                make_silence_wav(span.slot_start - cursor, gap_file)
+                segments.append(gap_file)
+                cursor = span.slot_start
+            segments.append(clip)
+            length = get_media_duration(clip) or span.speech
+            placed.append((span.slot_start, span.slot_start + length))
+            cursor = span.slot_start + length
+            slot_end = span.slot_start + span.slot_len
+            if slot_end > cursor + 0.02:
+                pad_file = work_dir / f"rpad_{tag}_{line.index}.wav"
+                make_silence_wav(slot_end - cursor, pad_file)
+                segments.append(pad_file)
+                cursor = slot_end
+        if total > cursor + 0.02:
+            tail = work_dir / f"rtail_{tag}.wav"
+            make_silence_wav(total - cursor, tail)
+            segments.append(tail)
+
+        final_wav = work_dir / f"narration_{tag}.wav"
+        self._concat(segments, final_wav, total)
+        for seg in segments:
+            if seg.parent == work_dir and seg.name.startswith(("rgap_", "rpad_", "rtail_")):
+                seg.unlink(missing_ok=True)
+
+        silent_windows: list[dict] = []
+        for sp in spans:
+            if sp.line_index < 0 and sp.slot_len > 1.2:
+                silent_windows.append({"start": round(sp.slot_start, 2),
+                                       "end": round(sp.slot_start + sp.slot_len, 2)})
+            elif sp.slot_len - sp.speech > 1.2:
+                silent_windows.append({"start": round(sp.slot_start + sp.speech, 2),
+                                       "end": round(sp.slot_start + sp.slot_len, 2)})
+        slowed = [sp for sp in spans if sp.speed < 0.999]
+        frozen = sum(sp.freeze for sp in spans)
+        if slowed:
+            warnings.append(
+                f"အသံ 1.0x အတိအကျ ထားပြီး စာကြောင်း {len(slowed)} ကြောင်းအတွက် "
+                f"ရုပ်ကို အနည်းဆုံး 0.9x အထိ နှေးထားပါသည်"
+                + (f" (နောက်ဆုံး frame ရပ်၍ {frozen:.1f}s ဖြည့်ထားသည်)" if frozen > 0.05 else ""))
+        # dialogues in the same order plan_lines consumed them
+        ordered = [d for d in sorted(dialogues, key=lambda d: float(d.get("start", 0.0) or 0.0))
+                   if clean_script_line(str(d.get("text", "")),
+                                        "my") and float(d.get("start", 0.0) or 0.0) < duration]
+        new_dialogues = retimed_dialogues(ordered, spans)
+        if progress:
+            progress(100, f"🎧 အသံ ပြီးစီးပါပြီ ({human_time(get_media_duration(final_wav))})")
+        result = MixResult(str(final_wav), get_media_duration(final_wav) or total,
+                           planned, warnings, gaps=silent_windows,
+                           spoken_seconds=sum(max(0.0, e - s) for s, e in placed))
+        result.spans = spans
+        result.retimed_dialogues = new_dialogues
+        return result
 
     def _concat(self, segments: list[Path], out_path: Path, duration: float) -> None:
         if not segments:

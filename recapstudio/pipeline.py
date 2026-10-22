@@ -161,21 +161,11 @@ class RecapPipeline:
                               f"coverage={coverage.get('coverage_percent')}%")
             self.store.raise_if_cancelled(job_id)
 
-            # ── 1b. narration length budget ───────────────────────────
-            # A line that needs 9 seconds to read but only owns a 4 second
-            # window used to be rescued by speeding the voice up, which is
-            # what made the narration sound rushed (#2). Trim it to what can
-            # be spoken calmly — the subtitle then shows exactly what is said.
-            dialogues, condensed = fit_lines_to_windows(
-                dialogues, duration, payload.get("lang", "my"),
-                respect_end=(fill_mode == "dialogue"))
-            if condensed:
-                store.log(job_id, f"✂️ စာကြောင်း {condensed} ကြောင်းကို အချိန်ကိုက် တိုအောင် ချုံ့လိုက်သည် "
-                                  f"(အသံ မြန်လွန်းခြင်း မဖြစ်စေရန်)")
-                store.update(job_id, dialogues=dialogues,
-                             stats={**store.get(job_id).stats,
-                                    "script": {"condensed_lines": condensed,
-                                               "total_lines": len(dialogues)}})
+            # ── 1b. narration timing (owner rule 2026-10-22) ─────────
+            # Lines are NEVER condensed and the voice is NEVER sped up.
+            # The script is spoken in full at a natural 1.0x; if a line
+            # needs more time than its window, the retime plan slows the
+            # picture (to at most 0.9x, then a freeze) in the voice stage.
 
             # ── 2. voice ──────────────────────────────────────────────
             voice_cfg = _voice_config(payload.get("lang", "my"), payload.get("voice", "thiha"))
@@ -196,13 +186,18 @@ class RecapPipeline:
                 cancel=self._cancel(job_id),
                 fallback_voice_cfg=alt_voice_cfg,
                 strict_timing=(fill_mode == "dialogue"),
+                retime=True,
             )
-            # ── silence repair: the video must be voiced from start to end ─
-            dialogues, mix = self._repair_silences(
-                job_id=job_id, dialogues=dialogues, mix=mix, duration=duration,
-                work_dir=work_dir, voice_cfg=voice_cfg, alt_voice_cfg=alt_voice_cfg,
-                fill_mode=fill_mode, payload=payload, voice_prog=voice_prog,
-            )
+            # Retimed output: subtitles/SRT and the render all live on the
+            # new audio-led timeline. (Silence repair is skipped: silent
+            # spans in the retimed master are the source's own pauses, and
+            # re-assembling on the old timeline would break sync.)
+            total_duration = mix.duration
+            if mix.retimed_dialogues:
+                dialogues = mix.retimed_dialogues
+                store.update(job_id, dialogues=dialogues)
+            store.log(job_id, f"🎞️ Retime: source {duration:.1f}s → output {total_duration:.1f}s "
+                              f"({len(mix.spans)} spans)")
             voice_stats = mix.stats()
             store.update(job_id, dialogues=dialogues,
                          stats={**store.get(job_id).stats, "voice": voice_stats},
@@ -217,11 +212,11 @@ class RecapPipeline:
             # ── 3. mix/master audio ───────────────────────────────────
             store.update(job_id, stage="mix", message="🧵 အသံ timeline တိကျစွာ ချိန်နေပါသည်...")
             narration_mp3 = work_dir / f"narration_{job_id}.mp3"
-            master_audio(mix.audio_path, narration_mp3, duration,
+            master_audio(mix.audio_path, narration_mp3, total_duration,
                          loudnorm=config.settings.loudness_normalize,
                          bitrate=config.settings.audio_bitrate)
             narration_seconds = get_media_duration(narration_mp3)
-            store.log(job_id, f"Narration mastered: {narration_seconds:.2f}s of {duration:.2f}s")
+            store.log(job_id, f"Narration mastered: {narration_seconds:.2f}s of {total_duration:.2f}s")
             store.update(job_id, progress=STAGE_BOUNDS["mix"][1])
 
             # ── 4. subtitles ──────────────────────────────────────────
@@ -232,11 +227,11 @@ class RecapPipeline:
                 ass_path = str(work_dir / f"{job_id}.ass")
                 target_w, target_h = self._target_size(payload, info)
                 build_ass(
-                    dialogues=dialogues, duration=duration, ass_path=ass_path,
+                    dialogues=dialogues, duration=total_duration, ass_path=ass_path,
                     hook_line1=payload.get("hook_line1", store.get(job_id).hook_line1) or "",
                     hook_line2=payload.get("hook_line2", store.get(job_id).hook_line2) or "",
-                    font_size=int(payload.get("sub_font_size", 42)),
-                    v_margin=int(target_h * (float(payload.get("sub_v_pos_percent", 22)) / 100.0)),
+                    font_size=int(payload.get("sub_font_size", 0)) or int(target_w * 0.052),
+                    v_margin=int(target_h * (float(payload.get("sub_v_pos_percent", 8)) / 100.0)),
                     hex_color=payload.get("sub_color_hex", "#00F2FE"),
                     bg_style=payload.get("sub_bg_style", "Solid Box"),
                     width_percent=int(payload.get("sub_width_percent", 90)),
@@ -259,8 +254,19 @@ class RecapPipeline:
             logo_pos = None
             if logo_path and payload.get("logo_pos_x") is not None and payload.get("logo_pos_y") is not None:
                 logo_pos = (float(payload["logo_pos_x"]), float(payload["logo_pos_y"]))
+            # ── 4b. retime the picture to the audio-led timeline ──────
+            render_input = input_video
+            if mix.spans and (abs(total_duration - duration) > 0.05
+                               or any(sp.speed < 0.999 or sp.freeze > 0.05 for sp in mix.spans)):
+                from .retime import retime_video
+                retimed_path = str(work_dir / f"retimed_{job_id}.mp4")
+                retime_video(input_video, mix.spans, retimed_path,
+                             progress=render_prog, cancel=self._cancel(job_id),
+                             owner=job_id)
+                render_input = retimed_path
+
             render_result = render_master(
-                input_video=input_video,
+                input_video=render_input,
                 narration_wav=str(narration_mp3),
                 output_video=output_path,
                 ass_path=ass_path,
@@ -272,7 +278,7 @@ class RecapPipeline:
                 narration_gain=float(payload.get("narration_gain", 1.3)),
                 quality=quality,
                 target_size=self._target_size(payload, info),
-                duration=duration,
+                duration=total_duration,
                 progress=render_prog,
                 cancel=self._cancel(job_id),
                 owner=job_id,
@@ -516,10 +522,14 @@ class RecapPipeline:
                 progress=self._stage(job_id, "voice"), cancel=self._cancel(job_id),
                 fallback_voice_cfg=alt_voice_cfg,
                 strict_timing=(fill_mode == "dialogue"),
+                retime=True,
             )
+            total_duration = mix.duration
+            if mix.retimed_dialogues:
+                dialogues = mix.retimed_dialogues
             store.update(job_id, stage="mix")
             narration_mp3 = work_dir / f"narration_{job_id}_v2.mp3"
-            master_audio(mix.audio_path, narration_mp3, duration,
+            master_audio(mix.audio_path, narration_mp3, total_duration,
                          loudnorm=config.settings.loudness_normalize,
                          bitrate=config.settings.audio_bitrate)
 
@@ -530,11 +540,11 @@ class RecapPipeline:
                 store.update(job_id, stage="subtitles")
                 ass_path = str(work_dir / f"{job_id}_v2.ass")
                 build_ass(
-                    dialogues=dialogues, duration=duration, ass_path=ass_path,
+                    dialogues=dialogues, duration=total_duration, ass_path=ass_path,
                     hook_line1=(payload.get("hook_line1", job.hook_line1) if fill_mode != "dialogue" else ""),
                     hook_line2=(payload.get("hook_line2", job.hook_line2) if fill_mode != "dialogue" else ""),
-                    font_size=int(payload.get("sub_font_size", 42)),
-                    v_margin=int(target_h * (float(payload.get("sub_v_pos_percent", 22)) / 100.0)),
+                    font_size=int(payload.get("sub_font_size", 0)) or int(target_w * 0.052),
+                    v_margin=int(target_h * (float(payload.get("sub_v_pos_percent", 8)) / 100.0)),
                     hex_color=payload.get("sub_color_hex", "#00F2FE"),
                     bg_style=payload.get("sub_bg_style", "Solid Box"),
                     width_percent=int(payload.get("sub_width_percent", 90)),
@@ -552,8 +562,17 @@ class RecapPipeline:
             logo_pos = None
             if logo_path and payload.get("logo_pos_x") is not None and payload.get("logo_pos_y") is not None:
                 logo_pos = (float(payload["logo_pos_x"]), float(payload["logo_pos_y"]))
+            render_input = input_video
+            if mix.spans and (abs(total_duration - duration) > 0.05
+                               or any(sp.speed < 0.999 or sp.freeze > 0.05 for sp in mix.spans)):
+                from .retime import retime_video
+                retimed_path = str(work_dir / f"retimed_{job_id}_v2.mp4")
+                retime_video(input_video, mix.spans, retimed_path,
+                             progress=self._stage(job_id, "render"),
+                             cancel=self._cancel(job_id), owner=job_id)
+                render_input = retimed_path
             render_master(
-                input_video=input_video, narration_wav=str(narration_mp3),
+                input_video=render_input, narration_wav=str(narration_mp3),
                 output_video=output_path, ass_path=ass_path,
                 logo_path=str(config.resolve(logo_path)) if logo_path else None,
                 logo_pos=logo_pos,
@@ -562,7 +581,7 @@ class RecapPipeline:
                 keep_original_level=float(payload.get("original_level", 0.12)),
                 narration_gain=float(payload.get("narration_gain", 1.3)),
                 quality=payload.get("quality", job.request.get("quality", "balanced")),
-                target_size=(target_w, target_h), duration=duration,
+                target_size=(target_w, target_h), duration=total_duration,
                 progress=self._stage(job_id, "render"), cancel=self._cancel(job_id),
                 owner=job_id,
             )

@@ -12,3 +12,4 @@ python-dotenv>=1.0
 cryptography>=42.0
 pydantic>=2.7
 httpx>=0.27
+streamlit-local-storage>=0.0.5   # API keys survive a page refresh (browser localStorage)

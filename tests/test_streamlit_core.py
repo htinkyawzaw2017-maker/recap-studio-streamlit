@@ -80,4 +80,24 @@ res = render_master(str(src), str(narration), str(out), ass_path=str(ass),
                     target_size=(int(info["width"]), int(info["height"])),
                     duration=info["duration"])
 ok(out.exists() and out.stat().st_size > 5000, f"final MP4 rendered ({out.stat().st_size} bytes)")
+# 7 ── retime: voice stays 1.0x, picture slows to at most 0.9x + freeze
+from recapstudio.media import get_media_duration
+from recapstudio.retime import retime_video
+long_text = "ဒီဇာတ်လမ်းမှာ သူရဲကောင်းတစ်ယောက် ရွာကို ကယ်တင်ဖို့ တောင်ပေါ်ကို တက်သွားပါတယ် " * 3
+rt_dialogues = [
+    {"start": 0.0, "end": 6.0, "speaker": "Recap", "text": long_text},
+    {"start": 6.0, "end": 12.0, "speaker": "Recap", "text": "နောက်ဆုံးမှာ အားလုံး ပျော်ရွှင်စွာ နေထိုင်ကြပါတယ်။"},
+]
+rt_mix = engine.build_narration(dialogues=rt_dialogues, voice_cfg=_voice_config("my", "thiha"),
+                                duration=info["duration"], work_dir=work, tag="rt", retime=True)
+ok(bool(rt_mix.spans) and all(0.9 <= sp.speed <= 1.0 for sp in rt_mix.spans),
+   "retime speeds stay within 0.9–1.0x")
+ok(all(pl.tts_rate == "+0%" and pl.tempo == 1.0 for pl in rt_mix.planned),
+   "voice is never speed-adjusted (always natural 1.0x)")
+ok(rt_mix.duration > info["duration"], "long line kept in full — output runs longer")
+rt_vid = work / "retimed.mp4"
+retime_video(str(src), rt_mix.spans, rt_vid)
+ok(abs(get_media_duration(str(rt_vid)) - rt_mix.duration) < 0.35,
+   "retimed video and narration lengths match (A/V sync)")
+
 print(f"\nALL {checks} CHECKS PASSED → {out}")

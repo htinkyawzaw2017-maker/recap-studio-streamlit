@@ -48,6 +48,7 @@ from recapstudio.keys import UnlimitedKeyPool, mask, validate_key  # noqa: E402
 from recapstudio.media import get_video_info  # noqa: E402
 from recapstudio.pipeline import RecapPipeline, _fallback_voice, _voice_config  # noqa: E402
 from recapstudio.render import export_srt, render_master  # noqa: E402
+from recapstudio.retime import retime_video  # noqa: E402
 from recapstudio.subtitles import build_ass  # noqa: E402
 from recapstudio.tts import (  # noqa: E402
     TTSEngine,
@@ -92,6 +93,16 @@ st.markdown("""
     border-radius: 12px; padding: 10px 12px;
   }
   .stButton > button { border-radius: 12px; font-weight: 700; }
+  /* videos keep their own ratio inside a tidy box — never stretched
+     to fill the whole screen width */
+  div[data-testid="stVideo"] {
+    background: #000; border-radius: 14px; padding: 6px;
+    border: 1px solid rgba(255,255,255,.12);
+  }
+  div[data-testid="stVideo"] video {
+    width: 100%; max-height: 62vh; object-fit: contain;
+    background: #000; border-radius: 10px; display: block; margin: 0 auto;
+  }
   .bigbtn > button {
     background: linear-gradient(120deg, #7c3aed, #db2777) !important; color: #fff !important;
     border: none !important; padding: .65rem 1rem !important; font-size: 1.02rem !important;
@@ -121,6 +132,8 @@ SS.setdefault("script_confirmed", False)
 SS.setdefault("edited_dialogues", [])
 SS.setdefault("outputs", None)       # render results
 SS.setdefault("logs", [])
+SS.setdefault("busy", False)         # a long job is running → lock buttons
+BUSY = bool(SS.get("busy"))
 
 
 def secret_keys() -> list[str]:
@@ -143,6 +156,42 @@ def all_keys() -> list[str]:
         if k and k not in merged:
             merged.append(k)
     return merged
+
+
+# ── browser-local key storage: API keys survive a page refresh ──────
+# Keys live ONLY in this browser's localStorage (never on a server, never
+# in a URL). If the helper package is unavailable the app still works —
+# keys then last for the session only, exactly as before.
+try:
+    from streamlit_local_storage import LocalStorage
+    _lstore = LocalStorage()
+except Exception:
+    _lstore = None
+
+
+def _load_persisted_keys() -> None:
+    if _lstore is None or SS["keys"]:
+        return
+    # the component needs a run or two to hand the value back; after a few
+    # attempts stop asking so a misbehaving browser can never stall the app
+    if SS.get("_ls_attempts", 0) >= 3:
+        return
+    SS["_ls_attempts"] = SS.get("_ls_attempts", 0) + 1
+    try:
+        saved = _lstore.getItem("gemini_api_keys")
+    except Exception:
+        saved = None
+    if saved:
+        SS["keys"] = [k.strip() for k in str(saved).splitlines() if k.strip()]
+
+
+def _persist_keys() -> None:
+    if _lstore is None:
+        return
+    try:
+        _lstore.setItem("gemini_api_keys", "\n".join(SS["keys"]))
+    except Exception:
+        pass
 
 
 def make_pool() -> UnlimitedKeyPool | None:
@@ -198,6 +247,7 @@ st.markdown(f'<div class="stepbar">{_pills}</div>', unsafe_allow_html=True)
 # ─────────────────────────────────────────────────────────────────────────
 # Sidebar — 🔑 API Key Pool
 # ─────────────────────────────────────────────────────────────────────────
+_load_persisted_keys()
 with st.sidebar:
     st.markdown("## 🔑 Gemini API Keys")
     st.caption("AI Studio (aistudio.google.com) က Free key တွေ တစ်ကြောင်းကို တစ်ခုစီ ထည့်ပါ။ "
@@ -208,10 +258,11 @@ with st.sidebar:
                         placeholder="AIza...\nAIza...\nAIza...",
                         label_visibility="collapsed")
     c1, c2 = st.columns(2)
-    if c1.button("💾 Keys သိမ်းမည်", use_container_width=True):
+    if c1.button("💾 Keys သိမ်းမည်", use_container_width=True, disabled=BUSY):
         SS["keys"] = [k.strip() for k in _txt.splitlines() if k.strip()]
+        _persist_keys()
         st.success(f"✅ Key {len(SS['keys'])} ခု သိမ်းပြီးပါပြီ")
-    if c2.button("🧪 အားလုံး စမ်းမည်", use_container_width=True):
+    if c2.button("🧪 အားလုံး စမ်းမည်", use_container_width=True, disabled=BUSY):
         _test_keys = [k.strip() for k in _txt.splitlines() if k.strip()]
         if not _test_keys:
             st.warning("အရင် key ထည့်ပါ")
@@ -224,7 +275,9 @@ with st.sidebar:
     if _secret("GEMINI_API_KEYS") or _secret("GEMINI_API_KEY"):
         st.caption(f"🔐 Secrets မှ key {len(secret_keys())} ခု ပါဝင်ပြီး — စုစုပေါင်း **{_n} ခု** အသင့်ရှိပါသည်")
     elif _n:
-        st.caption(f"စုစုပေါင်း **{_n} ခု** အသင့်ရှိပါသည် (ဒီ browser session အတွင်းသာ သိမ်းထားပါသည်)")
+        st.caption(f"စုစုပေါင်း **{_n} ခု** အသင့်ရှိပါသည်"
+                   + (" — ဒီ browser မှာ သိမ်းထားလို့ page refresh လုပ်လည်း ပြန်ထည့်စရာ မလိုပါ" if _lstore is not None
+                      else " (ဒီ browser session အတွင်းသာ သိမ်းထားပါသည်)"))
     else:
         st.warning("Key မထည့်ရသေးပါ — Demo Script Mode နဲ့တော့ စမ်းနိုင်ပါတယ်")
 
@@ -234,6 +287,34 @@ with st.sidebar:
                          ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
                          help="Flash = အရည်အသွေး ကောင်း • Flash-Lite = quota ချွေတာ၊ မြန်")
     demo_script = st.checkbox("🎭 Demo Script Mode (Key မလိုဘဲ စမ်းရန်)", value=False)
+
+    st.divider()
+    st.markdown("## 🧹 Workspace")
+    st.caption("အလုပ် တစ်ခုပြီးတိုင်း ယာယီဖိုင်တွေ ရှင်းထားရင် Cloud disk မပြည့်ပါ။")
+    if st.button("🧹 Workspace ရှင်းမည်", use_container_width=True, disabled=BUSY):
+        import shutil as _shutil
+        _freed = 0
+        for _child in list(WORK_DIR.iterdir()):
+            try:
+                _sz = sum(f.stat().st_size for f in _child.rglob("*") if f.is_file()) \
+                    if _child.is_dir() else _child.stat().st_size
+                if _child.is_dir():
+                    _shutil.rmtree(_child, ignore_errors=True)
+                else:
+                    _child.unlink(missing_ok=True)
+                _freed += _sz
+            except Exception:
+                pass
+        for _k in ("video_path", "current_path", "current_label"):
+            SS[_k] = ""
+        SS["video_info"] = None
+        SS["parts"] = []
+        SS["dialogues"] = []
+        SS["edited_dialogues"] = []
+        SS["script_confirmed"] = False
+        SS["outputs"] = None
+        st.success(f"✅ ရှင်းပြီးပါပြီ — {human_bytes(_freed)} လွတ်သွားပါသည်")
+        st.rerun()
     st.caption("Free stack: Gemini Free Tier • Edge TTS • FFmpeg • yt-dlp — "
                "ပိုက်ဆံပေးရတာ တစ်ခုမှ မပါဝင်ပါ။")
 
@@ -265,7 +346,7 @@ with _tab_up:
 with _tab_link:
     _url = st.text_input("လင့်ခ်", placeholder="https://youtu.be/…  (သို့)  TikTok link",
                          label_visibility="collapsed")
-    if st.button("⬇️ လင့်ခ်မှ ဒေါင်းလုဒ် လုပ်မည်", disabled=not _url.strip()):
+    if st.button("⬇️ လင့်ခ်မှ ဒေါင်းလုဒ် လုပ်မည်", disabled=(not _url.strip()) or BUSY):
         try:
             import yt_dlp
             _dest = WORK_DIR / f"link_{uuid.uuid4().hex[:8]}.mp4"
@@ -294,7 +375,7 @@ if SS["video_path"] and Path(SS["video_path"]).exists():
     _cols[1].metric("⏱️ ကြာချိန်", human_time(float(_vi.get("duration", 0))))
     _cols[2].metric("🖼️ အရွယ်အစား", f"{_vi.get('width', '?')}×{_vi.get('height', '?')}")
     _cols[3].metric("💾 ဖိုင်ဆိုဒ်", human_bytes(int(_vi.get("size", Path(SS['video_path']).stat().st_size))))
-    if st.button("🎬 ဒီဗီဒီယို အပြည့်ကို Recap Mode သို့ ပို့မည်", type="primary"):
+    if st.button("🎬 ဒီဗီဒီယို အပြည့်ကို Recap Mode သို့ ပို့မည်", type="primary", disabled=BUSY):
         set_current(SS["video_path"], "ဗီဒီယို အပြည့်")
         st.success("✅ Recap Mode သို့ ပို့ပြီးပါပြီ — အောက်က အဆင့် 3️⃣ ကို ဆက်လုပ်ပါ")
         st.rerun()
@@ -312,7 +393,7 @@ if SS["video_path"] and Path(SS["video_path"]).exists():
     _slice_min = _sc1.selectbox("အပိုင်း တစ်ပိုင်းရဲ့ အရှည်",
                                 [3, 5, 8, 10, 15], index=2, format_func=lambda m: f"{m} မိနစ်")
     _sc2.write("")
-    if _sc2.button("✂️ အပိုင်းခွဲထုတ်မည်", type="primary"):
+    if _sc2.button("✂️ အပိုင်းခွဲထုတ်မည်", type="primary", disabled=BUSY):
         try:
             _pipe = RecapPipeline(None)
             _bar = st.progress(0.0, "ခွဲထုတ်နေပါသည်…")
@@ -336,7 +417,7 @@ if SS["video_path"] and Path(SS["video_path"]).exists():
                 _cc[0].download_button("⬇️ ဒေါင်း", Path(_full).read_bytes(),
                                        file_name=_p["filename"], mime="video/mp4",
                                        key=f"dl_part_{_p['part']}")
-            if _cc[1].button("🎬 Recap ပို့မည်", key=f"send_part_{_p['part']}"):
+            if _cc[1].button("🎬 Recap ပို့မည်", key=f"send_part_{_p['part']}", disabled=BUSY):
                 set_current(_full, f"အပိုင်း {_p['part']}")
                 st.success(f"✅ အပိုင်း {_p['part']} ကို Recap Mode သို့ ပို့ပြီးပါပြီ — အဆင့် 3️⃣ ဆက်လုပ်ပါ")
                 st.rerun()
@@ -376,7 +457,7 @@ else:
                           help="ပိတ်ထားရင် မူရင်း စကားသံကို ဖယ်ပြီး Recap အသံပဲ ထားပါမယ်")
 
     st.markdown('<div class="bigbtn">', unsafe_allow_html=True)
-    _go = st.button("🧠 AI ဖြင့် Recap Script ထုတ်မည်", use_container_width=True)
+    _go = st.button("🧠 AI ဖြင့် Recap Script ထုတ်မည်", use_container_width=True, disabled=BUSY)
     st.markdown('</div>', unsafe_allow_html=True)
     if _go:
         SS["logs"] = []
@@ -385,6 +466,7 @@ else:
             st.error("Gemini Key ထည့်ရန် လိုပါသည် — ဘယ်ဘက် Sidebar မှာ ထည့်ပါ၊ "
                      "ဒါမှမဟုတ် 🎭 Demo Script Mode ဖွင့်ပြီး စမ်းပါ။")
         else:
+            SS["busy"] = True
             _dur = float(_ci["duration"])
             _status = st.status("🧠 AI ခွဲခြမ်းနေပါသည်…", expanded=True)
             try:
@@ -418,8 +500,10 @@ else:
                                     "fill_mode": fill_mode}
                 _status.update(label=f"✅ Script လိုင်း {len(SS['dialogues'])} လိုင်း ရပါပြီ — "
                                      f"အဆင့် 4️⃣ မှာ ပြင်ပြီး အတည်ပြုပါ", state="complete")
+                SS["busy"] = False
                 st.rerun()
             except Exception as exc:
+                SS["busy"] = False
                 _status.update(label="❌ မအောင်မြင်ပါ", state="error")
                 st.error(str(exc))
                 if SS["logs"]:
@@ -437,7 +521,8 @@ if SS["dialogues"]:
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown("### 4️⃣ ✍️ Recap Script ပြင်ရန် — အတည်ပြုပြီးမှ Render သွားပါမယ်")
     st.caption("လိုင်းတိုင်းရဲ့ စချိန်/ဆုံးချိန်/စာသားကို ပြင်နိုင်ပါတယ်။ လိုင်းအသစ် ထည့်/ဖျက်လည်း ရပါတယ်။ "
-               "⚠️ ပြထားတဲ့ လိုင်းသည် window ထက် စာရှည်လွန်းလို့ အသံမြန်သွားနိုင်တဲ့ လိုင်းပါ။")
+               "အသံသည် အမြဲ သဘာဝနှုန်း 1.0x ပါ — ⚠️ ရှည်လွန်းသော လိုင်းအတွက်တော့ အသံကို မမြန်ဘဲ "
+               "ရုပ်ကိုပဲ အများဆုံး 0.9x အထိ နှေးပေးပါမယ်။")
     _cfg = SS.get("render_cfg", {"lang": "my"})
     _lang = _cfg.get("lang", "my")
     _cps = chars_per_second(_lang)
@@ -469,15 +554,17 @@ if SS["dialogues"]:
             "text": st.column_config.TextColumn("Recap စာသား", width="large"),
         })
     _b1, _b2 = st.columns(2)
-    if _b1.button("🔧 ရှည်နေသော စာကြောင်းများ အလိုအလျောက် ချုံ့မည်"):
+    if _b1.button("⏱️ ရှည်သောလိုင်း စစ်မည်", disabled=BUSY):
         _rows = _edited.to_dict("records")
-        _fixed, _n = fit_lines_to_windows(_rows, float(current_info()["duration"]), _lang,
-                                          respect_end=(_cfg.get("fill_mode") == "dialogue"))
-        SS[_editor_key] = pd.DataFrame(_fixed)
-        st.success(f"✅ {_n} လိုင်းကို အချိန်ကိုက် ချုံ့ပြီးပါပြီ")
-        st.rerun()
+        _long = [i + 1 for i, r in enumerate(_rows)
+                 if len(str(r["text"])) / _cps > max(0.1, float(r["end"]) - float(r["start"]))]
+        if _long:
+            st.info(f"လိုင်း {len(_long)} လိုင်း ရှည်နေပါတယ် (#{', #'.join(map(str, _long[:10]))}) — "
+                    "စာကို မချုံ့ပါ၊ အသံ 1.0x အတိုင်းထားပြီး render မှာ ရုပ်ကို အများဆုံး 0.9x အထိ နှေးပေးပါမယ်။")
+        else:
+            st.success("✅ လိုင်းအားလုံး သဘာဝနှုန်းနဲ့ ကိုက်ညီပါတယ်")
     st.markdown('<div class="okbtn">', unsafe_allow_html=True)
-    if _b2.button("✅ ဒီ Script ကို အတည်ပြုမည် — Render အဆင့်သို့", use_container_width=True):
+    if _b2.button("✅ ဒီ Script ကို အတည်ပြုမည် — Render အဆင့်သို့", use_container_width=True, disabled=BUSY):
         _rows = []
         for _, r in _edited.iterrows():
             _text = str(r["text"]).strip()
@@ -517,9 +604,10 @@ else:
                f"ဘာသာစကား: **{'မြန်မာ' if _lang == 'my' else 'English'}** • "
                f"အသံ: **{VOICE_CATALOG[_lang][_cfg.get('voice_key', 'thiha' if _lang == 'my' else 'christopher')]['name']}**")
     st.markdown('<div class="bigbtn">', unsafe_allow_html=True)
-    _render = st.button("🎬 Render စတင်မည်", use_container_width=True)
+    _render = st.button("🎬 Render စတင်မည်", use_container_width=True, disabled=BUSY)
     st.markdown('</div>', unsafe_allow_html=True)
     if _render and _info:
+        SS["busy"] = True
         _job = WORK_DIR / f"job_{uuid.uuid4().hex[:8]}"
         _job.mkdir(parents=True, exist_ok=True)
         _status = st.status("🎙️ အသံ သွင်းနေပါသည်…", expanded=True)
@@ -532,18 +620,23 @@ else:
             _voice_cfg = _voice_config(_lang, _cfg.get("voice_key", ""))
             _alt_cfg = _fallback_voice(_lang, _cfg.get("voice_key", ""))
             _engine = TTSEngine()
+            # အသံ = အမြဲ သဘာဝနှုန်း 1.0x (လုံးဝ မမြန်ပါ)။ စာကြောင်း ရှည်ရင်
+            # ရုပ်ကို 0.9x အထိ နှေး/frame ရပ်ပြီး အသံနဲ့ တိတိကျကျ ကိုက်ညှိပါတယ်။
             _mix = _engine.build_narration(
                 dialogues=SS["edited_dialogues"], voice_cfg=_voice_cfg, duration=_dur,
                 work_dir=_job, tag="st", progress=_rp,
                 fallback_voice_cfg=_alt_cfg,
-                strict_timing=(_cfg.get("fill_mode") == "dialogue"))
+                strict_timing=(_cfg.get("fill_mode") == "dialogue"),
+                retime=True)
+            _total = _mix.duration
+            _dlgs = _mix.retimed_dialogues or SS["edited_dialogues"]
             _status.update(label="🧵 အသံ ချိန်ညှိနေပါသည်…")
             _narration = _job / "narration.mp3"
-            master_audio(_mix.audio_path, _narration, _dur,
+            master_audio(_mix.audio_path, _narration, _total,
                          loudnorm=recap_config.settings.loudness_normalize)
             _ass = None
             _srt = _job / "recap.srt"
-            export_srt(SS["edited_dialogues"], _srt)
+            export_srt(_dlgs, _srt)
             _aspect = _cfg.get("aspect", "မူရင်း")
             if _aspect == "16:9":
                 _size, _reframe = (1280, 720), "Center Crop"
@@ -555,23 +648,40 @@ else:
                 _size, _reframe = (int(_info["width"]), int(_info["height"])), "Original (no reframe)"
             if _cfg.get("sub_on", True):
                 _ass = _job / "recap.ass"
-                build_ass(dialogues=SS["edited_dialogues"], duration=_dur, ass_path=_ass,
+                build_ass(dialogues=_dlgs, duration=_total, ass_path=_ass,
                           hook_line1=SS["hook1"], hook_line2=SS["hook2"],
-                          font_size=42, v_margin=int(_size[1] * 0.22),
+                          font_size=int(_size[0] * 0.052), v_margin=int(_size[1] * 0.08),
                           hex_color="#00F2FE", play_res=_size)
+            _render_in = SS["current_path"]
+            if _mix.spans and (abs(_total - _dur) > 0.05
+                               or any(sp.speed < 0.999 or sp.freeze > 0.05 for sp in _mix.spans)):
+                _status.update(label="🎞️ အသံနဲ့ ကိုက်အောင် ရုပ်ကို ချိန်နေပါသည်… (အများဆုံး 0.9x)")
+                _rt = _job / "retimed.mp4"
+                retime_video(SS["current_path"], _mix.spans, _rt, progress=_rp)
+                _render_in = str(_rt)
             _status.update(label="🎬 ဗီဒီယို Render လုပ်နေပါသည်… (အရှည်ပေါ် မူတည်ပြီး ကြာနိုင်ပါသည်)")
             _out = _job / "recap_final.mp4"
             _res = render_master(
-                SS["current_path"], str(_narration), str(_out),
+                _render_in, str(_narration), str(_out),
                 ass_path=str(_ass) if _ass else None,
                 reframe=_reframe, mute_original=bool(_cfg.get("mute_org", True)),
-                quality="fast", target_size=_size, duration=_dur, progress=_rp)
+                quality="fast", target_size=_size, duration=_total, progress=_rp)
             SS["outputs"] = {"mp4": str(_out), "srt": str(_srt), "mp3": str(_narration),
                               "size": _out.stat().st_size if _out.exists() else 0,
+                              "duration": _total,
                               "warnings": list(_res.get("warnings", [])) + list(_mix.warnings)}
+            # job ပြီးတာနဲ့ ယာယီဖိုင်တွေ ရှင်း (final ဖိုင် ၃ ခုပဲ ထား)
+            for _f in list(_job.iterdir()):
+                if _f.name not in {"recap_final.mp4", "recap.srt", "narration.mp3"}:
+                    try:
+                        _f.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+            SS["busy"] = False
             _status.update(label="🎉 Render ပြီးပါပြီ!", state="complete")
             st.rerun()
         except Exception as exc:
+            SS["busy"] = False
             _status.update(label="❌ Render မအောင်မြင်ပါ", state="error")
             st.error(str(exc))
 
