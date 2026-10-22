@@ -1,0 +1,246 @@
+[NATURAL STORYTELLING VOCABULARY]
+
+# --- 1. စာကြောင်းဆက် စကားလုံးများ (Connectors) ---
+However = ဒါပေမဲ့
+But = ဒါပေမဲ့
+Then = ပြီးတော့
+And then = အဲဒီနောက်မှာတော့
+So = ဒီလိုနဲ့
+Therefore = ဒါကြောင့်
+Suddenly = ရုတ်တရက်
+After that = အဲဒါပြီးတော့
+Meanwhile = တစ်ချိန်တည်းမှာပဲ
+Actually = တကယ်တော့
+Finally = နောက်ဆုံးတော့
+Unfortunately = ကံမကောင်းစွာနဲ့ပဲ
+Luckily = ကံကောင်းလို့
+In fact = တကယ်တမ်းကျတော့
+Because = ဘာလို့လဲဆိုတော့
+That's why = အဲဒါကြောင့်မို့လို့
+At that moment = အဲဒီအချိန်မှာ
+Ideally = ပုံမှန်ဆိုရင်တော့
+Suddenly appeared = ဘွားခနဲ ပေါ်လာတယ်
+Eventually = နောက်ဆုံးကျတော့
+
+# --- 2. စာကြောင်းအဆုံးသတ်များ (Natural Endings) ---
+# (AI ကို "သည်/၏" အစား ဒါတွေသုံးဖို့ သင်ပေးခြင်း)
+is = တယ်
+are = တယ်
+was = တယ်
+were = တယ်
+will = မယ်
+might = မယ်
+should = သင့်တယ်
+must = ရမယ်
+can = နိုင်တယ်
+right? = နော်
+of course = ပေါ့
+exactly = ပေါ့
+just = ပဲ
+only = ပဲ
+please = ပါ
+let's = ကြစို့
+emphasis_end = လေ
+confirmation_end = သေးတယ်
+regret_end = မိတယ်
+
+# --- 3. စိတ်ခံစားမှုပြ စကားလုံးများ (Emotions & Reactions) ---
+Very = အရမ်း
+Really = တကယ်ကို
+Extremely = အသေ
+Terrifying = ကြောက်စရာကြီး
+Amazing = မိုက်တယ်
+Awesome = ရှယ်ပဲ
+Shocking = လန့်သွားတာပေါ့
+Sad = ဝမ်းနည်းစရာကောင်းတာက
+Happily = ပျော်ပျော်ကြီး
+Angrily = ဒေါသတကြီးနဲ့
+Confused = ကြောင်သွားတယ်
+Excited = စိတ်လှုပ်ရှားစရာပဲ
+Boring = ပျင်းစရာကြီး
+Crazy = ရူးချင်စရာပဲ
+Weird = ထူးထူးဆန်းဆန်း
+Mysterious = ဆန်းကြယ်တဲ့
+Scary = လန့်စရာကောင်းလောက်အောင်
+Funny = ရယ်စရာကောင်းတာက
+Stupid = တုံးလိုက်တာ
+Smart = ပါးနပ်လိုက်တာ
+
+# --- 4. လှုပ်ရှားမှုဆိုင်ရာ (Action Verbs for Recap) ---
+Decided to = ဆုံးဖြတ်လိုက်တယ်
+Started to = စလုပ်တော့တယ်
+Tried to = ကြိုးစားပါလေရော
+Managed to = လုပ်နိုင်ခဲ့တယ်
+Failed to = မလုပ်နိုင်ခဲ့ဘူး
+Looked at = ကြည့်လိုက်တော့
+Saw = တွေ့လိုက်ရတယ်
+Realized = သတိထားမိလိုက်တယ်
+Understood = နားလည်သွားတယ်
+Knew = သိလိုက်ရတယ်
+Ran away = ထွက်ပြေးတော့တာပေါ့
+Chased = လိုက်ဖမ်းပါလေရော
+Killed = သတ်ပစ်လိုက်တယ်
+Saved = ကယ်လိုက်နိုင်တယ်
+Escaped = လွတ်သွားတယ်
+Destroyed = ဖျက်ဆီးပစ်လိုက်တယ်
+Created = ဖန်တီးလိုက်တယ်
+Changed = ပြောင်းလဲသွားတယ်
+Disappeared = ပျောက်ချင်းမလှ ပျောက်သွားတယ်
+Arrived = ရောက်လာတယ်
+
+# --- 5. အချိန်ပြ စကားလုံးများ (Time Transitions) ---
+A long time ago = ဟိုးအရင်တုန်းက
+One day = တစ်နေ့မှာတော့
+Next morning = နောက်တစ်နေ့မနက်မှာ
+That night = အဲဒီညမှာ
+Years later = နှစ်အတော်ကြာတော့
+A few moments later = ခဏနေတော့
+Immediately = ချက်ချင်းဆိုသလို
+Slowly = ဖြည်းဖြည်းချင်း
+Quickly = မြန်မြန်ဆန်ဆန်
+Often = ခဏခဏ
+Always = အမြဲတမ်း
+Never = ဘယ်တော့မှ
+Sometimes = တစ်ခါတလေကျရင်
+Usually = ပုံမှန်ဆို
+Recently = မကြာသေးခင်ကမှ
+Now = အခုတော့
+
+# --- 6. လူညွှန်း နမ်စားများ (Natural Pronouns) ---
+He = သူ
+She = သူမ
+They = သူတို့
+The boy = ကောင်လေးက
+The girl = ကောင်မလေးက
+The man = အဲဒီလူက
+The woman = အဲဒီအမျိုးသမီးက
+Everyone = အားလုံးက
+No one = ဘယ်သူမှ
+Someone = တစ်ယောက်ယောက်က
+
+# --- 7. အထူးပြု စကားလုံးများ (Fillers & Flavors) ---
+Basically = ပြောရမယ်ဆိုရင်
+Literally = တကယ့်ကို
+Seriously = တကယ်ကြီး
+Hopefully = မျှော်လင့်တာကတော့
+Probably = ဖြစ်နိုင်တာက
+Maybe = ဖြစ်ကောင်းဖြစ်နိုင်တယ်
+Definitely = သေချာတာပေါ့
+Whatever = ဘာပဲဖြစ်ဖြစ်
+Anyway = ထားပါတော့
+Wow = ဝိုး
+
+[ADVANCED RECAP VOCABULARY - SET 2]
+
+# --- 1. အခြေအနေ တင်းမာမှုပြ စကားလုံးများ (Tension & Suspense) ---
+Out of nowhere = ဗြုန်းခနဲ
+Sneaked into = ခိုးကြောင်ခိုးဝှက်နဲ့
+Creepy = ကြက်သီးထစရာကြီး
+Panic = ပျာယာခတ်သွားတယ်
+Trap = ထောင်ချောက်
+Escalated = အခြေအနေ ပိုဆိုးလာတယ်
+Danger = အန္တရာယ်
+Suspicious = မသင်္ကာစရာ
+Heart pounding = ရင်တထိတ်ထိတ်နဲ့
+Breathless = အသက်ရှူမှားလောက်တဲ့
+Unconsciously = သတိလစ်မတတ်
+Desperately = အသည်းအသန်
+Cornered = အကြပ်ရိုက်သွားတယ်
+Hopeless = မျှော်လင့်ချက် မရှိတော့သလို
+Messy = ရှုပ်ပွသွားတာပဲ
+Bloody = သွေးသံရဲရဲနဲ့
+Deadly = သေလောက်တဲ့
+Secretly = တိတ်တဆိတ်
+Silence = တိတ်ဆိတ်ငြိမ်သက်လို့
+Darkness = အမှောင်ထုထဲမှာ
+
+# --- 2. ဇာတ်ရှိန်မြှင့် စကားလုံးများ (Intensifiers/Slang) ---
+Totally = လုံးဝကို
+Insane = ရူးချင်စရာပဲ
+Massive = အကြီးအကျယ်
+Brutal = ရက်ရက်စက်စက်
+Mess up = ပြဿနာ တက်ပြီ
+Screwed up = သွားပြီလေ
+Damn = ကျွတ်စ
+Oh my god = ဘုရားရေ
+What the hell = ဘာတွေဖြစ်ကုန်တာလဲ
+Serious = အတည်ပေါက်နဲ့
+Fake = အတုကြီး
+Nonsense = ပေါက်ကရတွေ
+Chaos = ရုန်းရင်းဆန်ခတ်
+Violent = ကြမ်းတမ်းတဲ့
+Freaking out = ကြောက်လွန်းလို့ သေးပါမတတ်
+Dumb = အူကြောင်ကြောင်
+Genius = ဉာဏ်ကြီးရှင်
+Loser = အသုံးမကျတဲ့ကောင်
+Lucky guy = ကံကောင်းတဲ့ကောင်
+Bad luck = ကံဆိုးချင်တော့
+
+# --- 3. တုံ့ပြန်မှုနှင့် လုပ်ဆောင်ချက်များ (Reactions & Actions) ---
+Stared at = စိုက်ကြည့်နေတယ်
+Glared = မျက်စောင်းထိုးလိုက်တယ်
+Screamed = အော်ဟစ်လိုက်တယ်
+Whispered = တီးတိုးပြောလိုက်တယ်
+Grabbed = ဆွဲခေါ်သွားတယ်
+Pushed = တွန်းထုတ်လိုက်တယ်
+Smashed = ရိုက်ခွဲပစ်လိုက်တယ်
+Exploded = ပေါက်ကွဲသွားတယ်
+Vanished = ပျောက်ချင်းမလှ ပျောက်သွားတယ်
+Rescued = ကယ်ထုတ်လာတယ်
+Betrayed = သစ္စာဖောက်လိုက်တယ်
+Tricked = လှည့်စားလိုက်တယ်
+Ignored = လှည့်တောင်မကြည့်ဘူး
+Investigated = စုံစမ်းကြည့်တော့
+Noticed = သတိထားမိသွားတယ်
+Suspected = သံသယ ဝင်လာတယ်
+Planned = ကြံစည်ထားတယ်
+Hesitated = တွေဝေနေတယ်
+Regretted = နောင်တရသွားတယ်
+Apologized = တောင်းပန်လိုက်တယ်
+
+# --- 4. ဇာတ်လမ်းချိတ်ဆက် စကားလုံးများ (Plot Connectors) ---
+At first = စစချင်းတုန်းကတော့
+As expected = ထင်ထားတဲ့အတိုင်းပဲ
+Unlike before = အရင်ကနဲ့မတူတော့ဘဲ
+Worse than that = အဲဒါထက် ဆိုးတာက
+To make matters worse = ပိုဆိုးချင်တော့
+Strangely = ထူးထူးဆန်းဆန်း
+Coincidentally = တိုက်တိုက်ဆိုင်ဆိုင်
+Without hesitation = ချက်ချင်းဆိုသလိုပဲ
+Little by little = တဖြည်းဖြည်းနဲ့
+In the end = နောက်ဆုံးရလဒ်ကတော့
+From then on = အဲဒီကစပြီး
+Unexpectedly = မထင်မှတ်ထားဘဲ
+Supposedly = တကယ်ဆိုရင်
+Actually = လက်တွေ့မှာတော့
+Turns out = တကယ်တမ်းကျတော့
+Apparently = ကြည့်ရတာတော့
+Basically = အဓိကကတော့
+Whatever it takes = ဘာပဲဖြစ်ဖြစ်
+No matter what = ဘယ်လိုပဲဖြစ်ဖြစ်
+Meanwhile back there = ဟိုဘက်မှာကျတော့
+
+# --- 5. မြန်မာမှုပြုထားသော အသုံးအနှုန်းများ (Localized Idioms) ---
+In trouble = ဒုက္ခလှလှတွေ့ပြီ
+Gone wrong = လွဲချော်ကုန်ပြီ
+Messing around = မွှေနှောက်နေတယ်
+Keep an eye on = မျက်ခြေမပြတ်ကြည့်နေတယ်
+Run for life = အသက်လုပြီးပြေးရတယ်
+Face to face = မျက်နှာချင်းဆိုင်
+On purpose = တမင်သက်သက်
+Give up = လက်မြှောက်လိုက်တယ်
+Show off = ဆရာကြီးလုပ်နေတယ်
+Acting = အိုင်တင်ခံနေတယ်
+Mind blown = ခေါင်းပါစားသွားတယ်
+Speechless = ပြောစရာစကားမရှိတော့ဘူး
+Out of control = ထိန်းမရသိမ်းမရ
+Risk = စွန့်စားပြီး
+Chance = အခွင့်အရေး
+Clue = သဲလွန်စ
+Truth = အမှန်တရား
+Villain = ဗီလိန်
+Hero = မင်းသား
+Survivor = အသက်ရှင် ကျန်ရစ်သူ
+
+
+

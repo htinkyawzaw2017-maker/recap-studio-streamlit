@@ -1,1 +1,69 @@
-# recap-studio-streamlit
+# 🎬 Recap Studio MM — Free Edition (Streamlit)
+
+ဘာသာစကားမရွေး ဗီဒီယိုတွေကို သဘာဝကျတဲ့ **🇲🇲 မြန်မာ / 🇬🇧 English Recap** အဖြစ် ပြောင်းပေးတဲ့
+အခမဲ့ Webapp ပါ။ အခြေခံ engine သည် Recap Studio MM Pro v4.4 (Gemini video understanding,
+zero-drift timing, Edge TTS) ဖြစ်ပြီး UI ကို Streamlit နဲ့ အသစ် ရေးထားပါတယ်။
+
+## ✨ လုပ်ဆောင်ချက်များ
+
+| အဆင့် | လုပ်ဆောင်ချက် |
+|---|---|
+| 🔑 | **Gemini Key Pool — အကန့်အသတ် မရှိ** (တစ်ကြောင်း တစ်ခု)၊ quota ပြည့်ရင် နောက် key သို့ အလိုအလျောက် ပြောင်း |
+| 1️⃣ | ဗီဒီယို တင် / YouTube-TikTok လင့်ခ် ထည့် |
+| 2️⃣ | **Long Video Splitter** — 3/5/8/10/15 မိနစ် အပိုင်းခွဲ၊ အပိုင်းတိုင်းမှာ **🎬 Recap ပို့မည်** (Transfer) ခလုတ် |
+| 3️⃣ | Recap Setup — ဘာသာစကား 🇲🇲/🇬🇧, Recap/Dubbing mode, အသံ, ပုံစံ ရွေး → Gemini နဲ့ Script ထုတ် |
+| 4️⃣ | **✍️ Script Editor** — စချိန်/ဆုံးချိန်/စာသား ပြင်၊ လိုင်း ထည့်/ဖျက်၊ ရှည်လွန်းတဲ့ လိုင်း ⚠️ အမှတ် + အလိုအလျောက် ချုံ့ခလုတ်။ **အတည်ပြုပြီးမှ Render ဖွင့်ပါတယ်** |
+| 5️⃣ | Render — Edge TTS အသံသွင်း → timeline တိကျစွာ ချိန် → စာတန်းထိုး → MP4 + SRT + MP3 ဒေါင်းလုဒ် |
+
+အသံများ (အခမဲ့ Edge TTS): မြန်မာ — Thiha (ကျား) / Nilar (မ) • English — Christopher / Jenny / Guy / Aria
+
+## 🚀 Streamlit Cloud မှာ တင်နည်း (၅ မိနစ်ခန့်)
+
+1. ဒီ folder တစ်ခုလုံးကို GitHub repo တစ်ခုထဲ push လုပ်ပါ
+   (`streamlit_app.py` က repo root မှာ ရှိရပါမယ်)
+2. [share.streamlit.io](https://share.streamlit.io) → **New app** → repo ရွေး →
+   Main file: `streamlit_app.py` → **Deploy**
+3. App **Settings → Secrets** မှာ key တွေ ထည့်ပါ (မထည့်ဘဲ UI မှာလည်း ထည့်နိုင်ပါတယ်):
+
+```toml
+GEMINI_API_KEYS = ["AIza...key1...", "AIza...key2...", "AIza...key3..."]
+```
+
+⚠️ **Quota တကယ် တိုးချင်ရင်** key တွေကို **Google project မတူတူချင်း** ထုတ်ပါ။
+Project တစ်ခုတည်းက key အများကြီးသည် quota တစ်ခုတည်းကို မျှသုံးနေတာ ဖြစ်ပါတယ်။
+
+## 💻 Local မှာ run နည်း
+
+```bash
+pip install -r requirements.txt      # + system မှာ ffmpeg လိုပါတယ်
+streamlit run streamlit_app.py       # http://localhost:8501
+```
+
+## ⚠️ Streamlit Cloud ရဲ့ ကန့်သတ်ချက်များ (အမှန်အတိုင်း)
+
+- **RAM/CPU နည်းပါတယ်** — ဗီဒီယို ရှည်ရှည်ကို တစ်ခါတည်း render ရင် နှေး/ကျနိုင်ပါတယ်။
+  ဒါကြောင့် Splitter နဲ့ **၈ မိနစ်အောက် အပိုင်းခွဲ** ပြီး တစ်ပိုင်းချင်း လုပ်ဖို့ အကြံပြုပါတယ်။
+- **ဖိုင်တွေ မမြဲပါ** — app အိပ်/restart ဖြစ်ရင် upload/render ဖိုင်တွေ ပျောက်ပါတယ်။
+  ပြီးတာနဲ့ ချက်ချင်း ဒေါင်းလုဒ် လုပ်ထားပါ။
+- Upload limit ကို 1 GB ထားထားပေမယ့် Cloud ရဲ့ ကိုယ်ပိုင် ကန့်သတ်ချက် ရှိနိုင်ပါတယ် —
+  ဖိုင်ကြီးရင် လင့်ခ် import (≤720p) က ပို အဆင်ပြေပါတယ်။
+- Edge TTS သည် Microsoft ရဲ့ အခမဲ့ endpoint ဖြစ်လို့ တစ်ခါတလေ နှေးနိုင်/ပြန်စမ်းရနိုင်ပါတယ်။
+
+## 🧪 စမ်းသပ်ချက်
+
+```bash
+RECAP_DATA_DIR=/tmp/recap_test RECAP_FAKE_TTS=1 RECAP_DEMO_MODE=1 \
+  python tests/test_streamlit_core.py
+# → key pool (25 keys) + failover, splitter, timeline, TTS, subtitle, render = 9 checks
+```
+
+## 📁 ဖွဲ့စည်းပုံ
+
+```
+streamlit_app.py     Streamlit UI (stepper workflow ၁–၅)
+recapstudio/         engine (v4.4 မှ) + keys.py ထဲက UnlimitedKeyPool အသစ်
+requirements.txt     Streamlit Cloud packages
+packages.txt         ffmpeg (system)
+.streamlit/          theme + upload config
+dictionary.txt / pronunciation.txt   မြန်မာ အသံထွက်/စကားလုံး ပြင်ဆင်ချက် ဖိုင်များ
+```

@@ -1,0 +1,704 @@
+# --- 1. အသုံးများသော အတိုကောက်များ (Acronyms) ---
+AI = အေအိုင်
+TV = တီဗီ
+OK = အိုကေ
+USA = ယူအက်စ်အေ
+CIA = စီအိုင်အေ
+FBI = အက်ဖ်ဘီအိုင်
+UFO = ယူအက်ဖ်အို
+VIP = ဗီအိုင်ပီ
+SOS = အက်စ်အိုအက်စ်
+CEO = စီအီးအို
+GPS = ဂျီပီအက်စ်
+PDF = ပီဒီအက်ဖ်
+USB = ယူအက်စ်ဘီ
+Wi-Fi = ဝိုင်ဖိုင်
+Wifi = ဝိုင်ဖိုင်
+ID = အိုင်ဒီ
+CD = စီဒီ
+DVD = ဒီဗီဒီ
+SCP = အက်စ်စီပီ
+
+# --- Specific Numbers Fix ---
+40,000 = လေးသောင်း
+40000 = လေးသောင်း
+4000 = လေးထောင်
+4000 = လေးထောင်
+3.3 = သုံးဒသမသုံး
+80000 = ရှစ်သောင်း
+20000 = နှစ်သောင်း
+21000 = နှစ်သောင်းတစ်ထောင်
+70000 = ခုနစ်သောင်း
+60000 = ခြောက်သောင်း
+
+# --- Word Flow Fixes (အသံတထစ်ငေါ့ ဖြစ်နေတာများ) ---
+လုံလောက်တဲ့ = လုံလောက်တဲ့
+လုံလောက် = လုံလောက်
+လုံလောက်သော = လုံလောက်သော
+ဖြစ်နိုင်ခြေ = ဖြစ်နိုင်ခြေ
+သိပ္ပံပညာရှင် = သိပ္ပံပညာရှင်
+ရှေးဟောင်းသုတေသန = ရှေးဟောင်းသုတေသန
+ဟိုမိုဆေးပီးယန်း = ဟိုမိုဆေးပီးယန်း
+
+
+# --- 2. ဆိုရှယ်မီဒီယာနှင့် နည်းပညာ (Tech & Social) ---
+Facebook = ဖေ့စ်ဘွတ်ခ်
+YouTube = ယူကျု့
+TikTok = တစ်တော့
+Google = ဂူဂဲလ်
+Instagram = အင်စတာဂရမ်
+Messenger = မက်ဆင်ဂျာ
+Viber = ဗိုက်ဘာ
+Telegram = တယ်လီဂရမ်
+Internet = အင်တာနက်
+Online = အွန်လိုင်း
+Website = ဝက်ဘ်ဆိုက်
+App = အက်ပ်
+Software = ဆော့ဖ်ဝဲလ်
+Update = အပ်ဒိတ်
+Download = ဒေါင်းလုဒ်
+Upload = အပ်လုဒ်
+Link = လင့်ခ်
+Phone = ဖုန်း
+Laptop = လက်ပ်တော့
+Computer = ကွန်ပျူတာ
+Camera = ကင်မရာ
+Digital = ဒီဂျစ်တယ်
+Technology = တက်ခနိုလော်ဂျီ
+Hacker = ဟက်ကာ
+Virus = ဗိုင်းရပ်စ်
+Comment = ကွန့်မန်
+
+# --- 3. ရုပ်ရှင်နှင့် ဇာတ်လမ်းဆိုင်ရာ (Movie Terms) ---
+Sci-fi = ဆိုင်ဖိုင်
+Action = အက်ရှင်
+Horror = ဟောရာ
+Drama = ဒရမ်မာ
+Thriller = သရဲလား
+Comedy = ဟာသ
+Series = စီးရီး
+Season = စီဇင်
+Episode = အပိုင်း
+Movie = မူဗီ
+Cinema = ဆီနီမာ
+Trailer = ထရွိုင်လာ
+Zombie = ဇွန်ဘီ
+Alien = အေလီယင်
+Monster = မွန်းစတား
+Hero = ဟီးရိုး
+Villain = ဗီလိန်
+Superpower = စူပါပါဝါ
+Robot = ရိုဘော့
+
+# --- 4. နေ့စဉ်သုံး အင်္ဂလိပ်စကားလုံးများ (Daily Loanwords) ---
+Mr. = မစ္စတာ
+Mrs. = မစ္စစ်
+Ms. = မစ်စ
+Dr. = ဒေါက်တာ
+Club = ကလပ်
+Bar = ဘား
+Counter = ကောင်တာ
+Gate = ဂိတ်
+Ticket = လက်မှတ်
+Bus = လိုင်းကား
+Taxi = တက္ကစီ
+Driver = ဒရိုင်ဘာ
+Police = ရဲ
+Office = ရုံး
+Market = ဈေး
+Shopping = ရှော့ပင်
+Date = ချိန်းတွေ့မယ်
+Party = ပါတီ
+Show = ရှိုး
+Style = စတိုင်
+Fashion = ဖက်ရှင်
+Design = ဒီဇိုင်း
+Model = မော်ဒယ်
+Project = ပရောဂျက်
+Meeting = မီတင်
+Manager = မန်နေဂျာ
+Staff = သာမန်ဝန်ထမ်း
+Bonus = အပိုဆုကြေး
+Dollar = ဒေါ်လာ
+Credit Card = ကရက်ဒစ်ကတ်
+
+# --- 5. အချိန်နှင့် အကွာအဝေး (Units) ---
+km = ကီလိုမီတာ
+kg = ကီလို
+cm = စင်တီမီတာ
+mm = မီလီမီတာ
+min = မိနစ်
+sec = စက္ကန့်
+hr = နာရီ
+vs = ဗားဆက်စ်
+
+# --- 6. အထူးပြု စကားလုံးများ (Specific Context) ---
+Homo Erectus = ဟိုမိုအီရက်တပ်စ်
+DNA = ဒီအန်အေ
+NASA = နာဆာ
+Area 51 = ဧရိယာ ဖစ်ဖတီဝမ်း
+Titanic = တိုင်တန်းနစ်
+Avatar = အဗာတာ
+Marvel = မာဗယ်
+DC = ဒီစီ
+Neanderthals = နီယန်ဒါသယ်
+
+# --- 1. လူသားမျိုးစိတ်များနှင့် ဆင့်ကဲဖြစ်စဉ် (Human Evolution) ---
+HomoSapiens = ဟိုမိုဆေးပီးယန်း
+HomoErectus = ဟိုမိုအီရက်တပ်စ်
+HomoHabilis = ဟိုမိုဟာဘီလစ်စ်
+Neanderthal = နီယန်ဒါသယ်
+Denisovan = ဒယ်နီဆိုဗန်
+Australopithecus = အော်စထရာလို ပစ်သီးကပ်စ်
+Australopithecus Afarensis = အော်စထရာလို ပစ်သီးကပ်စ် အာဖာရန်ဆစ်
+Lucy = လူစီ
+HomoHeidelbergensis = ဟိုမိုဟိုက်ဒါဘက်ဂျန်ဆစ်
+HomoFloresiensis = ဟိုမိုဖလိုရက်ဆီယန်ဆစ်
+Paranthropus = ပါရန်သရိုပတ်စ်
+Ardipithecus = အာဒီပစ်သီးကပ်စ်
+Primate = ပရိုင်းမိတ်
+Hominid = ဟိုမီနစ်
+Great Ape = ဂရိတ်ဧပ့်
+Ancestor = အန်ဆက်စတာ
+Evolution = အက်ဗော်လူးရှင်း
+Species = စပီးရှီး
+Gene = ဂျီးန်
+DNA = ဒီအန်အေ
+Chromosome = ခရိုမိုဇုန်း
+Skull = စကဲလ်
+Fossil = ဖော့ဆဲလ်
+Skeleton = စကဲလီတန်
+Mammoths = အမွေးရှည်မာမွတ်ဆင်
+HomoSapiens = ဟိုမိုဆေးပီးယန်း
+Homosapiens = ဟိုမိုဆေးပီးယန်း
+Homesapiens = ဟိုမိုဆေးပီးယန်း  (စာလုံးပေါင်းမှားတာကိုပါ ဖမ်းခိုင်းလိုက်တာပါ)
+Homo = ဟိုမို
+Sapiens = ဆေးပီးယန်း
+
+# --- 2. ခေတ်ကာလများ (Geological Eras & Ages) ---
+Stone Age  = ကျောက်ခေတ်
+Ice Age = ရေခဲခေတ်
+Bronze Age = ကြေးခေတ်
+Iron Age = သံခေတ်
+Paleolithic = ကျောက်ခေတ်ဟောင်း
+Mesolithic = မက်ဆိုလစ်သစ်
+Neolithic = နီယိုလစ်သစ်
+Pleistocene = ပလိုင်စတိုဆင်း
+Holocene = ဟိုလိုဆင်း
+Jurassic = ဂျူရာဆစ်
+Cretaceous = ခရီတေးရှပ်စ်
+Cambrian = ကမ်ဘရီယန်
+BC = ဘီစီ
+AD = အေဒီ
+Century = ဆန်ကျူရီ
+Millennium = မီလီနီယမ်
+Prehistoric = ပရီဟစ်စတောရစ်
+
+# --- 3. ရှေးဟောင်းယဉ်ကျေးမှုများ (Ancient Civilizations) ---
+Mesopotamia = မက်ဆိုပိုတေးမီးယား
+Sumerian = ဆူမေးရီးယန်း
+Babylon = ဘေဘီလုံ
+Egypt = အီဂျစ်
+Pharaoh = ဖာရို
+Pyramid = ပိရမစ်
+Mummy = မမ်မီ
+Hieroglyph = ဟိုင်ရိုဂလစ်ဖ်
+Sphinx = စဖင့်စ်
+Indus Valley = အိန္ဒုမြစ်ဝှမ်း
+Maya = မာယာ
+Aztec = အက်ဇ်တက်
+Inca = အင်ကာ
+Roman Empire = ရောမအမ်ပါယာ
+Greek = ဂရိ
+Sparta = စပါတာ
+Athens = အေသင်
+Viking = ဗိုင်းကင်း
+Mongol = မွန်ဂို
+Ottoman = အော်တိုမန်
+
+# --- 4. သမိုင်းဆိုင်ရာ နေရာများနှင့် အသုံးအနှုန်းများ ---
+Empire = အမ်ပါယာ
+Kingdom = ကင်းဒမ်း
+Dynasty = ဒိုင်းနပ်စတီ
+Colony = ကိုလိုနီ
+Republic = ရီပတ်ဘလစ်
+Democracy = ဒီမိုကရေစီ
+Revolution = တော်လှန်ရေး
+Civil War = ပြည်တွင်းစစ်
+World War = ကမ္ဘာစစ်
+Nazi = နာဇီ
+Soviet = ဆိုဗီယက်
+Communism = ကွန်မြူနစ်
+Capitalism = အရင်းရှင်
+Dictator = အာဏာရှင်
+Emperor = ဧကရာဇ်
+Gladiator = ဂလက်ဒီရေတာ
+Samurai = ဆာမူရိုင်း
+Ninja = နင်ဂျာ
+Knight = နိုက်
+Castle = ရဲတိုက်
+Temple = ဘုရားကျောင်း
+Museum = ပြတိုက်
+Archaeology = အာခီယော်လော်ဂျီ
+Artifact = အာတီဖက်ထ်
+
+# --- 5. သိပ္ပံနှင့် ကမ္ဘာ့သမိုင်း (Scientific History) ---
+Big Bang = ဘစ်ဘန်း
+Universe = ယူနီဗာ့စ်
+Galaxy = ဂလက်ဆီ
+Solar System = ဆိုလာစစ်စတမ်
+Planet = ပလက်နက်
+Asteroid = အက်စတာရွိုက်
+Meteor = မီတီယာ
+Volcano = ဗော်ကေနို
+Tsunami = ဆူနာမီ
+Earthquake = အာ့သ်ကွိတ်
+Continental Drift = ကွန်တီနန်တယ် ဒရစ်ဖ်
+Pangaea = ပန်ဂျီးယား
+Mammoth = မမို့သ်
+Dinosaur = ဒိုင်နိုဆော
+T-Rex = တီရက်စ်
+
+# --- 6. နာမည်ကြီး ပုဂ္ဂိုလ်များ (Famous Figures) ---
+Alexander the Great = အလက်ဇန္ဒား သည် ဂရိတ်
+Genghis Khan = ဂျင်ဂျစ်ခန်
+Julius Caesar = ဂျူးလိယက်ဆီဇာ
+Cleopatra = ကလီယိုပက်ထရာ
+Napoleon = နပိုလီယံ
+Einstein = အိုင်းစတိုင်း
+Hitler = ဟစ်တလာ
+Darwin = ဒါဝင်
+Da Vinci = ဒါဗင်ချီ
+Tesla = တက်စလာ
+Elon Musk = အီလွန်မတ်စ်
+
+
+[NATURAL STORYTELLING VOCABULARY]
+
+# --- 1. စာကြောင်းဆက် စကားလုံးများ (Connectors) ---
+However = ဒါပေမဲ့
+But = ဒါပေမဲ့
+Then = ပြီးတော့
+And then = အဲဒီနောက်မှာတော့
+So = ဒီလိုနဲ့
+Therefore = ဒါကြောင့်
+Suddenly = ရုတ်တရက်
+After that = အဲဒါပြီးတော့
+Meanwhile = တစ်ချိန်တည်းမှာပဲ
+Actually = တကယ်တော့
+Finally = နောက်ဆုံးတော့
+Unfortunately = ကံမကောင်းစွာနဲ့ပဲ
+Luckily = ကံကောင်းလို့
+In fact = တကယ်တမ်းကျတော့
+Because = ဘာလို့လဲဆိုတော့
+That's why = အဲဒါကြောင့်မို့လို့
+At that moment = အဲဒီအချိန်မှာ
+Ideally = ပုံမှန်ဆိုရင်တော့
+Suddenly appeared = ဘွားခနဲ ပေါ်လာတယ်
+Eventually = နောက်ဆုံးကျတော့
+
+# --- 2. စာကြောင်းအဆုံးသတ်များ (Natural Endings) ---
+# (AI ကို "သည်/၏" အစား ဒါတွေသုံးဖို့ သင်ပေးခြင်း)
+is = တယ်
+are = တယ်
+was = တယ်
+were = တယ်
+will = မယ်
+might = မယ်
+should = သင့်တယ်
+must = ရမယ်
+can = နိုင်တယ်
+right? = နော်
+of course = ပေါ့
+exactly = ပေါ့
+just = ပဲ
+only = ပဲ
+please = ပါ
+let's = ကြစို့
+emphasis_end = လေ
+confirmation_end = သေးတယ်
+regret_end = မိတယ်
+
+# --- 3. စိတ်ခံစားမှုပြ စကားလုံးများ (Emotions & Reactions) ---
+Very = အရမ်း
+Really = တကယ်ကို
+Extremely = အသေ
+Terrifying = ကြောက်စရာကြီး
+Amazing = မိုက်တယ်
+Awesome = ရှယ်ပဲ
+Shocking = လန့်သွားတာပေါ့
+Sad = ဝမ်းနည်းစရာကောင်းတာက
+Happily = ပျော်ပျော်ကြီး
+Angrily = ဒေါသတကြီးနဲ့
+Confused = ကြောင်သွားတယ်
+Excited = စိတ်လှုပ်ရှားစရာပဲ
+Boring = ပျင်းစရာကြီး
+Crazy = ရူးချင်စရာပဲ
+Weird = ထူးထူးဆန်းဆန်း
+Mysterious = ဆန်းကြယ်တဲ့
+Scary = လန့်စရာကောင်းလောက်အောင်
+Funny = ရယ်စရာကောင်းတာက
+Stupid = တုံးလိုက်တာ
+Smart = ပါးနပ်လိုက်တာ
+
+# --- 4. လှုပ်ရှားမှုဆိုင်ရာ (Action Verbs for Recap) ---
+Decided to = ဆုံးဖြတ်လိုက်တယ်
+Started to = စလုပ်တော့တယ်
+Tried to = ကြိုးစားပါလေရော
+Managed to = လုပ်နိုင်ခဲ့တယ်
+Failed to = မလုပ်နိုင်ခဲ့ဘူး
+Looked at = ကြည့်လိုက်တော့
+Saw = တွေ့လိုက်ရတယ်
+Realized = သတိထားမိလိုက်တယ်
+Understood = နားလည်သွားတယ်
+Knew = သိလိုက်ရတယ်
+Ran away = ထွက်ပြေးတော့တာပေါ့
+Chased = လိုက်ဖမ်းပါလေရော
+Killed = သတ်ပစ်လိုက်တယ်
+Saved = ကယ်လိုက်နိုင်တယ်
+Escaped = လွတ်သွားတယ်
+Destroyed = ဖျက်ဆီးပစ်လိုက်တယ်
+Created = ဖန်တီးလိုက်တယ်
+Changed = ပြောင်းလဲသွားတယ်
+Disappeared = ပျောက်ချင်းမလှ ပျောက်သွားတယ်
+Arrived = ရောက်လာတယ်
+
+# --- 5. အချိန်ပြ စကားလုံးများ (Time Transitions) ---
+A long time ago = ဟိုးအရင်တုန်းက
+One day = တစ်နေ့မှာတော့
+Next morning = နောက်တစ်နေ့မနက်မှာ
+That night = အဲဒီညမှာ
+Years later = နှစ်အတော်ကြာတော့
+A few moments later = ခဏနေတော့
+Immediately = ချက်ချင်းဆိုသလို
+Slowly = ဖြည်းဖြည်းချင်း
+Quickly = မြန်မြန်ဆန်ဆန်
+Often = ခဏခဏ
+Always = အမြဲတမ်း
+Never = ဘယ်တော့မှ
+Sometimes = တစ်ခါတလေကျရင်
+Usually = ပုံမှန်ဆို
+Recently = မကြာသေးခင်ကမှ
+Now = အခုတော့
+
+# --- 6. လူညွှန်း နမ်စားများ (Natural Pronouns) ---
+He = သူ
+She = သူမ
+They = သူတို့
+The boy = ကောင်လေးက
+The girl = ကောင်မလေးက
+The man = အဲဒီလူက
+The woman = အဲဒီအမျိုးသမီးက
+Everyone = အားလုံးက
+No one = ဘယ်သူမှ
+Someone = တစ်ယောက်ယောက်က
+
+# --- 7. အထူးပြု စကားလုံးများ (Fillers & Flavors) ---
+Basically = ပြောရမယ်ဆိုရင်
+Literally = တကယ့်ကို
+Seriously = တကယ်ကြီး
+Hopefully = မျှော်လင့်တာကတော့
+Probably = ဖြစ်နိုင်တာက
+Maybe = ဖြစ်ကောင်းဖြစ်နိုင်တယ်
+Definitely = သေချာတာပေါ့
+Whatever = ဘာပဲဖြစ်ဖြစ်
+Anyway = ထားပါတော့
+Wow = ဝိုး
+
+[ADVANCED RECAP VOCABULARY - SET 2]
+
+# --- 1. အခြေအနေ တင်းမာမှုပြ စကားလုံးများ (Tension & Suspense) ---
+Out of nowhere = ဗြုန်းခနဲ
+Sneaked into = ခိုးကြောင်ခိုးဝှက်နဲ့
+Creepy = ကြက်သီးထစရာကြီး
+Panic = ပျာယာခတ်သွားတယ်
+Trap = ထောင်ချောက်
+Escalated = အခြေအနေ ပိုဆိုးလာတယ်
+Danger = အန္တရာယ်
+Suspicious = မသင်္ကာစရာ
+Heart pounding = ရင်တထိတ်ထိတ်နဲ့
+Breathless = အသက်ရှူမှားလောက်တဲ့
+Unconsciously = သတိလစ်မတတ်
+Desperately = အသည်းအသန်
+Cornered = အကြပ်ရိုက်သွားတယ်
+Hopeless = မျှော်လင့်ချက် မရှိတော့သလို
+Messy = ရှုပ်ပွသွားတာပဲ
+Bloody = သွေးသံရဲရဲနဲ့
+Deadly = သေလောက်တဲ့
+Secretly = တိတ်တဆိတ်
+Silence = တိတ်ဆိတ်ငြိမ်သက်လို့
+Darkness = အမှောင်ထုထဲမှာ
+
+# --- 2. ဇာတ်ရှိန်မြှင့် စကားလုံးများ (Intensifiers/Slang) ---
+Totally = လုံးဝကို
+Insane = ရူးချင်စရာပဲ
+Massive = အကြီးအကျယ်
+Brutal = ရက်ရက်စက်စက်
+Mess up = ပြဿနာ တက်ပြီ
+Screwed up = သွားပြီလေ
+Damn = ကျွတ်စ
+Oh my god = ဘုရားရေ
+What the hell = ဘာတွေဖြစ်ကုန်တာလဲ
+Serious = အတည်ပေါက်နဲ့
+Fake = အတုကြီး
+Nonsense = ပေါက်ကရတွေ
+Chaos = ရုန်းရင်းဆန်ခတ်
+Violent = ကြမ်းတမ်းတဲ့
+Freaking out = ကြောက်လွန်းလို့ သေးပါမတတ်
+Dumb = အူကြောင်ကြောင်
+Genius = ဉာဏ်ကြီးရှင်
+Loser = အသုံးမကျတဲ့ကောင်
+Lucky guy = ကံကောင်းတဲ့ကောင်
+Bad luck = ကံဆိုးချင်တော့
+
+# --- 3. တုံ့ပြန်မှုနှင့် လုပ်ဆောင်ချက်များ (Reactions & Actions) ---
+Stared at = စိုက်ကြည့်နေတယ်
+Glared = မျက်စောင်းထိုးလိုက်တယ်
+Screamed = အော်ဟစ်လိုက်တယ်
+Whispered = တီးတိုးပြောလိုက်တယ်
+Grabbed = ဆွဲခေါ်သွားတယ်
+Pushed = တွန်းထုတ်လိုက်တယ်
+Smashed = ရိုက်ခွဲပစ်လိုက်တယ်
+Exploded = ပေါက်ကွဲသွားတယ်
+Vanished = ပျောက်ချင်းမလှ ပျောက်သွားတယ်
+Rescued = ကယ်ထုတ်လာတယ်
+Betrayed = သစ္စာဖောက်လိုက်တယ်
+Tricked = လှည့်စားလိုက်တယ်
+Ignored = လှည့်တောင်မကြည့်ဘူး
+Investigated = စုံစမ်းကြည့်တော့
+Noticed = သတိထားမိသွားတယ်
+Suspected = သံသယ ဝင်လာတယ်
+Planned = ကြံစည်ထားတယ်
+Hesitated = တွေဝေနေတယ်
+Regretted = နောင်တရသွားတယ်
+Apologized = တောင်းပန်လိုက်တယ်
+
+# --- 4. ဇာတ်လမ်းချိတ်ဆက် စကားလုံးများ (Plot Connectors) ---
+At first = စစချင်းတုန်းကတော့
+As expected = ထင်ထားတဲ့အတိုင်းပဲ
+Unlike before = အရင်ကနဲ့မတူတော့ဘဲ
+Worse than that = အဲဒါထက် ဆိုးတာက
+To make matters worse = ပိုဆိုးချင်တော့
+Strangely = ထူးထူးဆန်းဆန်း
+Coincidentally = တိုက်တိုက်ဆိုင်ဆိုင်
+Without hesitation = ချက်ချင်းဆိုသလိုပဲ
+Little by little = တဖြည်းဖြည်းနဲ့
+In the end = နောက်ဆုံးရလဒ်ကတော့
+From then on = အဲဒီကစပြီး
+Unexpectedly = မထင်မှတ်ထားဘဲ
+Supposedly = တကယ်ဆိုရင်
+Actually = လက်တွေ့မှာတော့
+Turns out = တကယ်တမ်းကျတော့
+Apparently = ကြည့်ရတာတော့
+Basically = အဓိကကတော့
+Whatever it takes = ဘာပဲဖြစ်ဖြစ်
+No matter what = ဘယ်လိုပဲဖြစ်ဖြစ်
+Meanwhile back there = ဟိုဘက်မှာကျတော့
+
+# --- 5. မြန်မာမှုပြုထားသော အသုံးအနှုန်းများ (Localized Idioms) ---
+In trouble = ဒုက္ခလှလှတွေ့ပြီ
+Gone wrong = လွဲချော်ကုန်ပြီ
+Messing around = မွှေနှောက်နေတယ်
+Keep an eye on = မျက်ခြေမပြတ်ကြည့်နေတယ်
+Run for life = အသက်လုပြီးပြေးရတယ်
+Face to face = မျက်နှာချင်းဆိုင်
+On purpose = တမင်သက်သက်
+Give up = လက်မြှောက်လိုက်တယ်
+Show off = ဆရာကြီးလုပ်နေတယ်
+Acting = အိုင်တင်ခံနေတယ်
+Mind blown = ခေါင်းပါစားသွားတယ်
+Speechless = ပြောစရာစကားမရှိတော့ဘူး
+Out of control = ထိန်းမရသိမ်းမရ
+Risk = စွန့်စားပြီး
+Chance = အခွင့်အရေး
+Clue = သဲလွန်စ
+Truth = အမှန်တရား
+Villain = ဗီလိန်
+Hero = မင်းသား
+Survivor = အသက်ရှင် ကျန်ရစ်သူ
+
+
+# --- 1. သတ္တဝါ အမျိုးအစားများ (Animal Classifications) ---
+Animal = သတ္တဝါ
+Animals = သတ္တဝါများ
+Creature = သတ္တဝါ
+Species = မျိုးစိတ်
+Aquatic Animal = ရေနေသတ္တဝါ
+Aquatic Animals = ရေနေသတ္တဝါများ
+Marine Life = ရေနေသတ္တဝါများ
+Terrestrial Animal = ကုန်းနေသတ္တဝါ
+Terrestrial Animals = ကုန်းနေသတ္တဝါများ
+Amphibian = ကုန်းနေရေနေသတ္တဝါ
+Amphibians = ကုန်းနေရေနေသတ္တဝါများ
+Mammal = နို့တိုက်သတ္တဝါ
+Mammals = နို့တိုက်သတ္တဝါများ
+Reptile = တွားသွားသတ္တဝါ
+Reptiles = တွားသွားသတ္တဝါများ
+Carnivore = အသားစားသတ္တဝါ
+Herbivore = အသီးအရွက်စားသတ္တဝါ
+Omnivore = အစုံစားသတ္တဝါ
+Predator = အမဲလိုက်သတ္တဝါ
+Prey = အမဲကောင်
+Insect = အင်းဆက်
+Bird = ငှက်
+Fish = ငါး
+
+# --- 2. တိုက်ကြီးများနှင့် နေရာဒေသ (Continents) ---
+Asia = အာရှ
+Europe = ဥရောပ
+Africa = အာဖရိက
+North America = မြောက်အမေရိက
+South America = တောင်အမေရိက
+Antarctica = အန္တာတိက
+Australia = ဩစတြေးလျ
+Arctic = အာတိတ်
+Middle East = အရှေ့အလယ်ပိုင်း
+West = အနောက်နိုင်ငံ
+East = အရှေ့နိုင်ငံ
+
+# --- 3. အာရှနိုင်ငံများ (Asian Countries) ---
+China = တရုတ်
+Japan = ဂျပန်
+Korea = ကိုရီးယား
+South Korea = တောင်ကိုရီးယား
+North Korea = မြောက်ကိုရီးယား
+India = အိန္ဒိယ
+Thailand = ထိုင်း
+Vietnam = ဗီယက်နမ်
+Myanmar = မြန်မာ
+Burma = မြန်မာ
+Singapore = စင်ကာပူ
+Malaysia = မလေးရှား
+Indonesia = အင်ဒိုနီးရှား
+Philippines = ဖိလစ်ပိုင်
+Russia = ရုရှား
+Mongolia = မွန်ဂိုလီးယား
+Nepal = နီပေါ
+Sri Lanka = သီရိလင်္ကာ
+Pakistan = ပါကစ္စတန်
+
+# --- 4. ဥရောပနိုင်ငံများ (European Countries) ---
+UK = ယူကေ
+United Kingdom = ယူကေ
+England = အင်္ဂလန်
+France = ပြင်သစ်
+Germany = ဂျာမနီ
+Italy = အီတလီ
+Spain = စပိန်
+Portugal = ပေါ်တူဂီ
+Greece = ဂရိ
+Netherlands = နယ်သာလန်
+Holland = ဟော်လန်
+Switzerland = ဆွစ်ဇာလန်
+Sweden = ဆွီဒင်
+Norway = နော်ဝေ
+Denmark = ဒိန်းမတ်
+Finland = ဖင်လန်
+Poland = ပိုလန်
+Ukraine = ယူကရိန်း
+Turkey = တူရကီ
+Rome = ရောမ
+
+# --- 5. အမေရိကနှင့် အခြားနိုင်ငံများ (Americas & Others) ---
+USA = အမေရိကန်
+United States = အမေရိကန်
+America = အမေရိကန်
+Canada = ကနေဒါ
+Mexico = မက္ကဆီကို
+Brazil = ဘရာဇီး
+Argentina = အာဂျင်တီးနား
+Peru = ပီရူး
+Chile = ချီလီ
+Egypt = အီဂျစ်
+South Africa = တောင်အာဖရိက
+Israel = အစ္စရေး
+Iran = အီရန်
+Iraq = အီရတ်
+Saudi Arabia = ဆော်ဒီအာရေဗျ
+New Zealand = နယူးဇီလန်
+
+# --- 6. ကျွန်းများနှင့် ပထဝီဝင် (Islands & Geography) ---
+Island = ကျွန်း
+Islands = ကျွန်းစု
+Peninsula = ကျွန်းဆွယ်
+River = မြစ်
+Sea = ပင်လယ်
+Ocean = သမုဒ္ဒရာ
+Mountain = တောင်တန်း
+Lake = ရေကန်
+Forest = သစ်တော
+Jungle = တောနက်
+Desert = သဲကန္တာရ
+
+# --- နာမည်ကြီး ကျွန်းများ ---
+Java = ဂျာဗားကျွန်း
+Sumatra = ဆူမတြာကျွန်း
+Borneo = ဘော်နီယိုကျွန်း
+Madagascar = မဒါဂါစကား
+Greenland = ဂရင်းလန်း
+Hawaii = ဟာဝိုင်အီ
+Taiwan = ထိုင်ဝမ်
+Tasmania = တက်စမေးနီးယား
+Galapagos = ဂါလာပါဂိုးစ့်
+Sicily = စစ္စလီကျွန်း
+Bermuda = ဘာမြူဒါ
+
+# --- နာမည်ကြီး မြစ်နှင့် ပင်လယ်များ ---
+Nile = နိုင်းမြစ်
+Amazon = အမေဇုန်
+Yangtze = ယန်စီမြစ်
+Mekong = မဲခေါင်မြစ်
+Ganges = ဂင်္ဂါမြစ်
+Pacific Ocean = ပစိဖိတ်သမုဒ္ဒရာ
+Atlantic Ocean = အတ္တလန္တိတ်သမုဒ္ဒရာ
+Indian Ocean = အိန္ဒိယသမုဒ္ဒရာ
+Mediterranean Sea = မြေထဲပင်လယ်
+Red Sea = ပင်လယ်နီ
+Black Sea = ပင်လယ်နက်
+Himalaya = ဟိမဝန္တာ
+Everest = ဧဝရတ်
+Sahara = ဆာဟာရ
+
+# --- Script Specific Animals (ဇာတ်ညွှန်းပါ သတ္တဝါများ) ---
+African lion = အာဖရိက ခြင်္သေ့
+Grizzly bear = ဂရစ်ဇလီ ဝက်ဝံ
+Saltwater crocodile = ရေငန် မိကျောင်း
+Great white shark = ဂရိတ်ဝိုက် ငါးမန်း
+Jaguar = ဂျာဂွါ
+Leopard = ကျားသစ်
+Shark = ငါးမန်း
+Crocodile = မိကျောင်း
+Bear = ဝက်ဝံ
+Lion = ခြင်္သေ့
+
+# --- Action Terms & Slang (အသုံးအနှုန်းများ) ---
+death roll = သေမင်းတမန် လှိမ့်ကွက်
+steak knives = စတီးဓား
+Game over = ရှောသွားပြီလေ
+bite force = ကိုက်အား
+PSI = ပီအက်စ်အိုင်
+
+# --- Common Translation Fixes ---
+Fall = ပြုတ်ကျ
+Fell = ပြုတ်ကျခဲ့
+Run = ပြေး
+Ran = ပြေးခဲ့
+Drop = ပြုတ်ကျ
+
+# --- Avatar (Movie Terms) ---
+Avatar = အဗာတာ
+Pandora = ပန်ဒိုရာ
+Jake Sully = ဂျိတ်ခ် ဆာလီ
+Jake = ဂျိတ်ခ်
+Sully = ဆာလီ
+Neytiri = နေတီရီ
+Na'vi = နာဗီ
+Toruk Makto = တိုရု မက်တို
+Eywa = အေဝါ
+Colonel = ဗိုလ်မှူးကြီး
+Quaritch = ကွာရစ်ခ်ျ
+Tsireya = ဆီရေယာ
+Neteyam = နေတေယမ်
+Lo'ak = လိုအက်ခ်
+Kiri = ကီရီ
+Spider = စပိုက်ဒါ
