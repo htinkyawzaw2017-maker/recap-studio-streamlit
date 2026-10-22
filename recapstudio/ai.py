@@ -584,6 +584,35 @@ def _chunk_prompt(chunk_start: float, chunk_end: float, target_language: str,
         except Exception:
             style_block = ""
 
+    # ── voice-of-the-recap rules (owner demand: 100% natural, scene-exact,
+    #    never generic) ──────────────────────────────────────────────────
+    selected_mode = fill_mode if fill_mode in FILL_MODE_PROMPTS else "continuous"
+    if target_language == "my" and selected_mode == "continuous":
+        voice_block = '''
+RECAP VOICE — NON-NEGOTIABLE (မြန်မာ):
+- လူပြော မြန်မာစကား စစ်စစ် (စကားပြော ဟန်) နဲ့ပဲ ရေးပါ။ စာအုပ်/ရုံးသုံး ဟန်၊ ဘာသာပြန် ဟန် လုံးဝ မသုံးရ။
+- လိုင်းတိုင်းသည် အဲဒီ အချိန် screen ပေါ်မှာ တကယ် မြင်နေရတဲ့ အရာ (ဘယ်သူ၊ ဘာလုပ်နေတယ်၊ ဘယ်နေရာ၊ မျက်နှာ အမူအရာ) ကိုပဲ ကွက်တိ ပြောရမည်။ မမြင်ရတာ၊ မသေချာတာ မထည့်ရ။
+- တားမြစ် generic စကားများ (လုံးဝ မသုံးရ): "ဇာတ်လမ်း စတင်ပါပြီ", "ဒီဇာတ်လမ်းမှာ", "အခုဆိုရင်", "ဆက်လက် စောင့်ကြည့်ရအောင်", "ဘာတွေ ဖြစ်လာမလဲ", "သူတို့ စကားပြောနေကြပါတယ်" (ဘာအကြောင်း ပြောနေတယ်ဆိုတာ မပါဘဲ), "အံ့ဩစရာ ကောင်းပါတယ်" (အကြောင်းရင်း မပါဘဲ)။
+- အသေးစိတ် အချက်အလက် သုံးပါ: လူနာမည်၊ ပစ္စည်း၊ နေရာ၊ လုပ်ရပ်၊ စိတ်ခံစားမှု။ တစ်လိုင်း = ဇာတ်ဝင်ခန်း တစ်ခု။
+- သဒ္ဒါ အမှန်: ကို/က/မှာ/ထဲ/ပေါ် နေရာ မှန်မှန် သုံးပါ။ စာကြောင်း အဆုံးသတ် ပုံစံ မျိုးစုံ သုံးပါ (တယ် / ပါတယ် / ပေါ့ / လေ / သွားတယ် / နေတယ် / မိတယ်) — "ဖြစ်ပါတယ်" နဲ့ လိုင်းတိုင်း မဆုံးရ။
+- ရိုးရိုး စကားလုံး ရွေးပါ: စာပေ ဆန်တဲ့ ရှားပါး စကားလုံး အစား လူတိုင်း သုံးတဲ့ စကားလုံး။ နံပါတ်/အသက်/ငွေ ကို ပြောရ လွယ်တဲ့ ပုံစံနဲ့ ရေးပါ။
+- စာကြောင်း ရှည်ကြီး မရေးရ — တစ်ချက် ပြောရင် အသက်ရှူ မကြပ်တဲ့ အတိုလေးတွေ ခွဲရေးပါ။'''
+    elif target_language == "my":
+        voice_block = '''
+DUBBING VOICE — NON-NEGOTIABLE (မြန်မာ):
+- မူရင်း အဓိပ္ပာယ်ကို လူပြော မြန်မာစကား စစ်စစ်နဲ့ ပြန်ပါ — တိုက်ရိုက် ဘာသာပြန် (translationese) လုံးဝ မဖြစ်ရ။ မြန်မာတွေ တကယ် ပြောတဲ့ ပုံစံ၊ သဒ္ဒါ အစီအစဉ် မှန်မှန်။
+- ပြောသူရဲ့ စိတ်ခံစားမှု၊ အသံအနိမ့်အမြင့်၊ ရင်းနှီးမှု အဆင့် (ခင်မင်တဲ့ ပုံစံ/ရိုသေတဲ့ ပုံစံ) ကို ထိန်းထားပါ။'''
+    elif selected_mode == "continuous":
+        voice_block = '''
+RECAP VOICE — NON-NEGOTIABLE:
+- Write like a real human recap narrator talking, not a summary writer. Every line must describe EXACTLY what is visible on screen in that moment — who, what action, where, what emotion. Never invent or generalise.
+- BANNED generic filler: "In this video", "Let's see what happens next", "Things take a turn", "Little did he know", "Meanwhile" (without concrete content), or any line that could fit any movie.
+- Concrete details only: names, objects, places, actions. One line = one scene beat. Vary sentence endings; keep it punchy and spoken.'''
+    else:
+        voice_block = '''
+DUBBING VOICE — NON-NEGOTIABLE:
+- Translate into idiomatic spoken English a real actor would say — never literal/translationese. Keep the speaker's emotion, register and intent.'''
+
     from .tts import budget_chars, chars_per_second
     cps = chars_per_second(target_language)
     lang_word = "Burmese" if target_language == "my" else "English"
@@ -631,6 +660,7 @@ MANDATORY RULES
    source line, with matching emotion and no narrator voice. Avoid filler and repeated phrases.
 5. Do not include timecodes, camera directions, stage directions, or speaker labels inside `text`.
    Never invent names, places, numbers, dialogue, or events. Return STRICT JSON only.
+{voice_block}
 {boundary_hint}
 
 JSON SHAPE

@@ -278,6 +278,7 @@ class RecapPipeline:
                 narration_gain=float(payload.get("narration_gain", 1.3)),
                 quality=quality,
                 target_size=self._target_size(payload, info),
+                mirror=bool(payload.get("mirror_video", False)),
                 duration=total_duration,
                 progress=render_prog,
                 cancel=self._cancel(job_id),
@@ -582,6 +583,7 @@ class RecapPipeline:
                 narration_gain=float(payload.get("narration_gain", 1.3)),
                 quality=payload.get("quality", job.request.get("quality", "balanced")),
                 target_size=(target_w, target_h), duration=total_duration,
+                mirror=bool(payload.get("mirror_video", False)),
                 progress=self._stage(job_id, "render"), cancel=self._cancel(job_id),
                 owner=job_id,
             )

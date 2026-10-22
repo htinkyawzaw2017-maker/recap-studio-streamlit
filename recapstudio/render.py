@@ -45,7 +45,8 @@ REFRAME_MODES = {
 def _video_filter_chain(reframe: str, width: int, height: int,
                         ass_path: str | None, logo_path: str | None,
                         logo_pos: tuple[float, float] | None,
-                        logo_input_index: int = 2) -> tuple[str, str]:
+                        logo_input_index: int = 2,
+                        mirror: bool = False) -> tuple[str, str]:
     """Return (filter_chain, final_video_label).
 
     ``logo_input_index`` must match the position of the logo ``-i`` argument
@@ -54,20 +55,30 @@ def _video_filter_chain(reframe: str, width: int, height: int,
     """
     parts: list[str] = []
     mode = REFRAME_MODES.get(reframe, "blur")
+    src = "[0:v]"
+    src_fg = src
+    if mirror:
+        if mode == "blur":
+            # the flipped stream feeds two branches → it must be split
+            parts.append("[0:v]hflip,split=2[mirror_bg][mirror_fg]")
+            src, src_fg = "[mirror_bg]", "[mirror_fg]"
+        else:
+            parts.append("[0:v]hflip[mirror_src]")
+            src = src_fg = "[mirror_src]"
     if mode == "blur":
         parts.append(
-            f"[0:v]scale={width}:{height}:force_original_aspect_ratio=increase,"
+            f"{src}scale={width}:{height}:force_original_aspect_ratio=increase,"
             f"crop={width}:{height},boxblur=24:8,eq=brightness=-0.18[bg];"
-            f"[0:v]scale={width}:{height}:force_original_aspect_ratio=decrease[fg];"
+            f"{src_fg}scale={width}:{height}:force_original_aspect_ratio=decrease[fg];"
             f"[bg][fg]overlay=(W-w)/2:(H-h)/2[v0]"
         )
     elif mode == "crop":
         parts.append(
-            f"[0:v]scale={width}:{height}:force_original_aspect_ratio=increase,"
+            f"{src}scale={width}:{height}:force_original_aspect_ratio=increase,"
             f"crop={width}:{height}[v0]"
         )
     else:
-        parts.append("[0:v]null[v0]")
+        parts.append(f"{src}null[v0]")
 
     current = "v0"
     label_index = 1
@@ -139,6 +150,7 @@ def render_master(input_video: str, narration_wav: str, output_video: str, *,
                   narration_gain: float = 1.25,
                   quality: str = "balanced",
                   target_size: tuple[int, int] | None = None,
+                  mirror: bool = False,
                   duration: float | None = None,
                   progress: ProgressFn = None,
                   cancel: Optional[Callable[[], bool]] = None,
@@ -157,7 +169,8 @@ def render_master(input_video: str, narration_wav: str, output_video: str, *,
     out_w, out_h = target_size or (720, 1280)
     mode = REFRAME_MODES.get(reframe, "blur")
 
-    needs_video_work = bool(ass_path) or bool(logo_path) or mode != "none" or force_reencode
+    needs_video_work = (bool(ass_path) or bool(logo_path) or mode != "none"
+                        or force_reencode or mirror)
     warnings: list[str] = []
     burned_subs = bool(ass_path)
 
@@ -188,6 +201,7 @@ def render_master(input_video: str, narration_wav: str, output_video: str, *,
             valid_logo,
             logo_pos,
             logo_input_index=2,
+            mirror=mirror,
         )
         audio_filter, audio_label = _audio_filter(
             info["has_audio"], mute_original, keep_original_level, narration_gain, True)

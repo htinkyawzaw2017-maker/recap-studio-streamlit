@@ -117,4 +117,51 @@ dub_mix = engine.build_narration(dialogues=short_dialogues, voice_cfg=_voice_con
 ok(abs(dub_mix.duration - info["duration"]) < 0.4,
    "dubbing stays faithful to source timing")
 
+# 9 ── bundled fonts travel as base64 (GitHub snapshot is text-only) and
+#      decode back to the exact TTFs — this is what fixes Myanmar shaping
+#      on Streamlit Cloud, where no .ttf ships in the repo
+import base64 as _b64
+from recapstudio import config as _cfg
+for _name in ("NotoSansMyanmar-Regular", "NotoSansMyanmar-Bold"):
+    _b64_path = _cfg.BUNDLED_FONT_DIR / f"{_name}.ttf.b64"
+    _tmp_ttf = work / f"{_name}.ttf"
+    _tmp_ttf.write_bytes(_b64.b64decode(_b64_path.read_text(encoding="ascii")))
+    from recapstudio.fonts import _valid_font
+    ok(_b64_path.exists() and _valid_font(_tmp_ttf), f"bundled font b64 decodes: {_name}")
+
+# 10 ── mirror mode flips the picture (subtitles stay readable — checked
+#       by construction: hflip is applied before the subtitle burn)
+mir_out = work / "final_mirror.mp4"
+render_master(str(src), str(narration), str(mir_out), ass_path=str(ass),
+              reframe="Original (no reframe)", quality="fast", mirror=True,
+              target_size=(int(info["width"]), int(info["height"])),
+              duration=info["duration"])
+import subprocess as _sp
+for _src_f, _name in ((out, "frame_normal"), (mir_out, "frame_mirror")):
+    _sp.run(["ffmpeg", "-y", "-ss", "5", "-i", str(_src_f), "-frames:v", "1",
+             str(work / f"{_name}.png")], capture_output=True)
+from PIL import Image as _Im
+import numpy as _np
+_a = _np.asarray(_Im.open(work / "frame_normal.png").convert("L"), dtype=float)
+_b = _np.asarray(_Im.open(work / "frame_mirror.png").convert("L"), dtype=float)
+ok(_a.shape == _b.shape and abs(_a - _b[:, ::-1]).mean() < abs(_a - _b).mean(),
+   "mirror mode flips the picture horizontally")
+
+# 11 ── TTS clips have their leading encoder silence stripped (sync)
+_padded = work / "padded.mp3"
+_sil = work / "sil03.wav"
+_tone = work / "tone1.wav"
+_sp.run(["ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
+         "-t", "0.3", str(_sil)], capture_output=True)
+_sp.run(["ffmpeg", "-y", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100:duration=1",
+         str(_tone)], capture_output=True)
+_lst = work / "pad_list.txt"
+_lst.write_text(f"file '{_sil}'\nfile '{_tone}'\n", encoding="utf-8")
+_sp.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(_lst),
+         "-c:a", "libmp3lame", str(_padded)], capture_output=True)
+_conv = work / "padded.wav"
+ok(engine._convert(_padded, _conv, 1.0, None)
+   and get_media_duration(str(_conv)) < 1.15,
+   "leading silence stripped from TTS clips")
+
 print(f"\nALL {checks} CHECKS PASSED → {out}")

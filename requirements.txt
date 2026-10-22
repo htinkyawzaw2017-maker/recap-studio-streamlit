@@ -1,5 +1,5 @@
 # Recap Studio MM — Free Edition (Streamlit Cloud)
-streamlit>=1.37
+streamlit>=1.40
 pandas>=2.0
 
 # ── Recap engine (from Recap Studio MM Pro v4.4) ──

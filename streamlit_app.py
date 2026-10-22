@@ -100,7 +100,7 @@ st.markdown("""
     border: 1px solid rgba(255,255,255,.12);
   }
   div[data-testid="stVideo"] video {
-    width: 100%; max-height: 62vh; object-fit: contain;
+    width: auto; max-width: 100%; max-height: 62vh; object-fit: contain;
     background: #000; border-radius: 10px; display: block; margin: 0 auto;
   }
   .bigbtn > button {
@@ -208,6 +208,38 @@ def set_current(path: str, label: str) -> None:
     SS["script_confirmed"] = False
     SS["outputs"] = None
     SS["script_version"] += 1
+
+
+def show_video(path: str) -> None:
+    """Show a video in a player sized to ITS OWN aspect ratio.
+
+    st.video otherwise stretches a full-width black box around the clip,
+    which reads as "the video fills the whole screen". We cap the player
+    at ~480px tall and centre it with spacer columns.
+    """
+    try:
+        _inf = get_video_info(path)
+        _vw, _vh = int(_inf.get("width") or 16), int(_inf.get("height") or 9)
+    except Exception:
+        _vw, _vh = 16, 9
+    _w = int(max(280, min(980, 480 * _vw / max(1, _vh))))
+    _side = max(0.05, (1000 - _w) / 2 / 1000)
+    _cols = st.columns([_side, 1 - 2 * _side, _side])
+    with _cols[1]:
+        try:
+            st.video(path, width=_w)
+        except TypeError:
+            st.video(path)
+
+
+def _sf(value, default: float = 0.0) -> float:
+    """Safe float: empty/None/NaN cells in the script grid must never crash."""
+    try:
+        import math
+        out = float(value)
+        return default if math.isnan(out) else out
+    except (TypeError, ValueError):
+        return default
 
 
 def current_info() -> dict | None:
@@ -347,31 +379,61 @@ with _tab_link:
     _url = st.text_input("လင့်ခ်", placeholder="https://youtu.be/…  (သို့)  TikTok link",
                          label_visibility="collapsed")
     if st.button("⬇️ လင့်ခ်မှ ဒေါင်းလုဒ် လုပ်မည်", disabled=(not _url.strip()) or BUSY):
-        try:
-            import yt_dlp
-            _dest = WORK_DIR / f"link_{uuid.uuid4().hex[:8]}.mp4"
-            with st.spinner("ဒေါင်းလုဒ် လုပ်နေပါသည်… (လင့်ခ် အရွယ်အစားပေါ် မူတည်ပြီး ကြာနိုင်ပါသည်)"):
-                with yt_dlp.YoutubeDL({
-                    "outtmpl": str(_dest.with_suffix(".%(ext)s")),
-                    "format": "best[height<=720][ext=mp4]/best[height<=720]/best",
-                    "merge_output_format": "mp4", "quiet": True, "no_warnings": True,
-                }) as ydl:
-                    _info = ydl.extract_info(_url.strip(), download=True)
-                    _real = Path(ydl.prepare_filename(_info)).with_suffix(".mp4")
-                    if _real.exists() and _real != _dest:
-                        _real.replace(_dest)
+        import yt_dlp
+        _link = _url.strip()
+        _dest = WORK_DIR / f"link_{uuid.uuid4().hex[:8]}.mp4"
+        # YouTube often rejects one player client ("confirm you're not a
+        # bot") while another works — try them in order before giving up.
+        _strategies = [None,
+                       {"youtube": {"player_client": ["android"]}},
+                       {"youtube": {"player_client": ["ios"]}},
+                       {"youtube": {"player_client": ["tv"]}},
+                       {"youtube": {"player_client": ["web"]}}]
+        if "youtube.com" not in _link and "youtu.be" not in _link:
+            _strategies = [None]
+        _last_err = None
+        _done = False
+        with st.spinner("ဒေါင်းလုဒ် လုပ်နေပါသည်… (မရရင် နည်း ပြောင်းပြီး ပြန်ကြိုးစားပါမယ်)"):
+            for _args in _strategies:
+                try:
+                    _opts = {
+                        "outtmpl": str(_dest.with_suffix(".%(ext)s")),
+                        "format": "best[height<=720][ext=mp4]/best[height<=720]/best",
+                        "merge_output_format": "mp4", "quiet": True, "no_warnings": True,
+                        "socket_timeout": 25, "retries": 3, "fragment_retries": 3,
+                    }
+                    if _args:
+                        _opts["extractor_args"] = _args
+                    with yt_dlp.YoutubeDL(_opts) as ydl:
+                        _info = ydl.extract_info(_link, download=True)
+                        _real = Path(ydl.prepare_filename(_info)).with_suffix(".mp4")
+                        if _real.exists() and _real != _dest:
+                            _real.replace(_dest)
+                    if _dest.exists() and _dest.stat().st_size > 10_000:
+                        _done = True
+                        break
+                except Exception as exc:  # try the next client strategy
+                    _last_err = exc
+                    for _part in WORK_DIR.glob(_dest.stem + "*"):
+                        if _part != _dest:
+                            _part.unlink(missing_ok=True)
+        if _done:
             SS["video_path"] = str(_dest)
             SS["parts"] = []
             SS["video_info"] = get_video_info(str(_dest))
             st.rerun()
-        except Exception as exc:
-            st.error(f"ဒေါင်းလုဒ် မအောင်မြင်ပါ: {exc}")
+        else:
+            st.error("ဒေါင်းလုဒ် မရပါ — YouTube က server IP ကို ပိတ်ထားတာ ဖြစ်နိုင်ပါတယ်။ "
+                     "ခဏနေ ပြန်စမ်းပါ၊ ဒါမှမဟုတ် ဗီဒီယိုဖိုင်ကို တိုက်ရိုက် တင်ပြီး သုံးပါ။")
+            if _last_err:
+                with st.expander("အမှား အသေးစိတ်"):
+                    st.code(str(_last_err)[:800])
 
 if SS["video_path"] and Path(SS["video_path"]).exists():
     _vi = SS["video_info"] or {}
     _cols = st.columns([2, 1, 1, 1])
     with _cols[0]:
-        st.video(SS["video_path"])
+        show_video(SS["video_path"])
     _cols[1].metric("⏱️ ကြာချိန်", human_time(float(_vi.get("duration", 0))))
     _cols[2].metric("🖼️ အရွယ်အစား", f"{_vi.get('width', '?')}×{_vi.get('height', '?')}")
     _cols[3].metric("💾 ဖိုင်ဆိုဒ်", human_bytes(int(_vi.get("size", Path(SS['video_path']).stat().st_size))))
@@ -450,11 +512,13 @@ else:
         _voices = VOICE_CATALOG[lang]
         voice_key = st.selectbox("🎙️ အသံ", list(_voices.keys()),
                                  format_func=lambda k: _voices[k]["name"])
-    _r4, _r5, _r6 = st.columns(3)
+    _r4, _r5, _r6, _r7 = st.columns(4)
     aspect = _r4.selectbox("📐 ထွက်မည့် ပုံစံ", ["မူရင်း", "16:9", "9:16", "1:1"])
     sub_on = _r5.toggle("📝 စာတန်းထိုး ထည့်မည်", value=True)
     mute_org = _r6.toggle("🔇 မူရင်းအသံ ပိတ်မည်", value=True,
                           help="ပိတ်ထားရင် မူရင်း စကားသံကို ဖယ်ပြီး Recap အသံပဲ ထားပါမယ်")
+    mirror_on = _r7.toggle("🪞 Mirror Mode", value=False,
+                           help="ဗီဒီယိုကို ဘယ်-ညာ ပြောင်းပြန် လှန်ပါမယ် (စာတန်းထိုး မလှန်ပါ)")
 
     st.markdown('<div class="bigbtn">', unsafe_allow_html=True)
     _go = st.button("🧠 AI ဖြင့် Recap Script ထုတ်မည်", use_container_width=True, disabled=BUSY)
@@ -497,6 +561,7 @@ else:
                 # keep the chosen settings for the render step
                 SS["render_cfg"] = {"lang": lang, "voice_key": voice_key, "aspect": aspect,
                                     "sub_on": sub_on, "mute_org": mute_org,
+                                    "mirror": mirror_on,
                                     "fill_mode": fill_mode}
                 _status.update(label=f"✅ Script လိုင်း {len(SS['dialogues'])} လိုင်း ရပါပြီ — "
                                      f"အဆင့် 4️⃣ မှာ ပြင်ပြီး အတည်ပြုပါ", state="complete")
@@ -534,12 +599,13 @@ if SS["dialogues"]:
     _editor_key = f"script_editor_v{SS['script_version']}"
     if _editor_key not in SS:
         SS[_editor_key] = pd.DataFrame([
-            {"start": float(d.get("start", 0)), "end": float(d.get("end", 0)),
-             "speaker": str(d.get("speaker", "")), "text": str(d.get("text", ""))}
+            {"start": _sf(d.get("start")), "end": _sf(d.get("end")),
+             "speaker": str(d.get("speaker", "") or ""), "text": str(d.get("text", "") or "")}
             for d in SS["dialogues"]])
     _df = SS[_editor_key]
     _over = sum(1 for _, r in _df.iterrows()
-                if len(str(r["text"])) / _cps > max(0.1, float(r["end"]) - float(r["start"])) * 1.12)
+                if len(str(r.get("text", "") or "")) / _cps
+                > max(0.1, _sf(r.get("end")) - _sf(r.get("start"))) * 1.12)
     _m = st.columns(3)
     _m[0].metric("📝 စာကြောင်း", len(_df))
     _m[1].metric("⚠️ ရှည်လွန်းသော လိုင်း", _over)
@@ -551,13 +617,14 @@ if SS["dialogues"]:
             "start": st.column_config.NumberColumn("စချိန် (s)", format="%.2f", min_value=0.0),
             "end": st.column_config.NumberColumn("ဆုံးချိန် (s)", format="%.2f", min_value=0.0),
             "speaker": st.column_config.TextColumn("ပြောသူ"),
-            "text": st.column_config.TextColumn("Recap စာသား", width="large"),
+            "text": st.column_config.TextColumn("Recap စာသား", width="large", max_chars=400),
         })
     _b1, _b2 = st.columns(2)
     if _b1.button("⏱️ ရှည်သောလိုင်း စစ်မည်", disabled=BUSY):
         _rows = _edited.to_dict("records")
         _long = [i + 1 for i, r in enumerate(_rows)
-                 if len(str(r["text"])) / _cps > max(0.1, float(r["end"]) - float(r["start"]))]
+                 if len(str(r.get("text", "") or "")) / _cps
+                 > max(0.1, _sf(r.get("end")) - _sf(r.get("start")))]
         if _long:
             st.info(f"လိုင်း {len(_long)} လိုင်း ရှည်နေပါတယ် (#{', #'.join(map(str, _long[:10]))}) — "
                     "စာကို မချုံ့ပါ၊ အသံ 1.0x အတိုင်းထားပြီး render မှာ ရုပ်ကို အများဆုံး 0.9x အထိ နှေးပေးပါမယ်။")
@@ -567,10 +634,10 @@ if SS["dialogues"]:
     if _b2.button("✅ ဒီ Script ကို အတည်ပြုမည် — Render အဆင့်သို့", use_container_width=True, disabled=BUSY):
         _rows = []
         for _, r in _edited.iterrows():
-            _text = str(r["text"]).strip()
+            _text = str(r.get("text", "") or "").strip()
             if not _text or _text == "nan":
                 continue
-            _s, _e = float(r["start"]), float(r["end"])
+            _s, _e = _sf(r.get("start")), _sf(r.get("end"))
             if _e <= _s:
                 _e = _s + 2.0
             _rows.append({"start": round(_s, 2), "end": round(_e, 2),
@@ -665,6 +732,7 @@ else:
                 _render_in, str(_narration), str(_out),
                 ass_path=str(_ass) if _ass else None,
                 reframe=_reframe, mute_original=bool(_cfg.get("mute_org", True)),
+                mirror=bool(_cfg.get("mirror", False)),
                 quality="fast", target_size=_size, duration=_total, progress=_rp)
             SS["outputs"] = {"mp4": str(_out), "srt": str(_srt), "mp3": str(_narration),
                               "size": _out.stat().st_size if _out.exists() else 0,
@@ -689,7 +757,7 @@ if SS["outputs"]:
     _o = SS["outputs"]
     st.markdown("#### 📥 ရလဒ် ဒေါင်းလုဒ်")
     if Path(_o["mp4"]).exists():
-        st.video(_o["mp4"])
+        show_video(_o["mp4"])
         _d = st.columns(3)
         _d[0].download_button("🎬 MP4 ဒေါင်းမည်", Path(_o["mp4"]).read_bytes(),
                               file_name="recap_final.mp4", mime="video/mp4", type="primary")

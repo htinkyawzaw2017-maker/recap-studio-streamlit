@@ -342,7 +342,10 @@ class TTSEngine:
 
     # ── fitting ────────────────────────────────────────────────────────
     def _convert(self, src: str | Path, dst: Path, tempo: float, max_seconds: float | None) -> bool:
-        filters = []
+        # MP3 encoder padding leaves ~50-100ms of silence at the head of
+        # every take; left in, each line starts a hair late and the voice
+        # feels slightly out of sync with the picture/subtitles. Strip it.
+        filters = ["silenceremove=start_periods=1:start_silence=0.04:start_threshold=-47dB"]
         if abs(tempo - 1.0) > 0.005:
             # atempo must stay inside 0.5-2.0; chain for larger factors
             remaining = tempo

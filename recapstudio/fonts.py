@@ -56,6 +56,40 @@ def _valid_font(path: Path) -> bool:
         return False
 
 
+def _restore_bundled_b64() -> Optional[Path]:
+    """Restore the bundled TTFs from their base64 twins.
+
+    The GitHub snapshot for the Streamlit edition can only carry UTF-8
+    text, so the fonts travel as ``*.ttf.b64`` files and are decoded back
+    to real TTFs on first use. This is what guarantees the *exact* known
+    good Noto Sans Myanmar on Streamlit Cloud — no network, no fallback
+    font with broken Myanmar shaping (the "မြန်မာစာ မမှန်" bug).
+    """
+    import base64
+    restored: Optional[Path] = None
+    for name in ("NotoSansMyanmar-Regular", "NotoSansMyanmar-Bold"):
+        target = config.BUNDLED_FONT_DIR / f"{name}.ttf"
+        if _valid_font(target):
+            restored = restored or target
+            continue
+        b64_path = config.BUNDLED_FONT_DIR / f"{name}.ttf.b64"
+        if not b64_path.exists():
+            continue
+        try:
+            raw = base64.b64decode(b64_path.read_text(encoding="ascii"))
+            tmp = target.with_suffix(".restore.tmp")
+            tmp.write_bytes(raw)
+            if _valid_font(tmp):
+                os.replace(tmp, target)
+                restored = restored or target
+                log.info("Restored bundled Myanmar font from base64: %s", target.name)
+            else:
+                tmp.unlink(missing_ok=True)
+        except Exception as exc:
+            log.warning("base64 font restore failed for %s: %s", name, exc)
+    return restored
+
+
 def _download_fallback() -> Optional[Path]:
     if os.getenv("RECAP_ALLOW_FONT_DOWNLOAD", "1") != "1":
         return None
@@ -88,6 +122,10 @@ def myanmar_font_path(bold: bool = False) -> Optional[str]:
     if _valid_font(other):
         return str(other)
     if _resolved and _valid_font(Path(_resolved)):
+        return _resolved
+    bundled = _restore_bundled_b64()
+    if bundled and _valid_font(bundled):
+        _resolved = str(bundled)
         return _resolved
     downloaded = _download_fallback()
     if downloaded:
