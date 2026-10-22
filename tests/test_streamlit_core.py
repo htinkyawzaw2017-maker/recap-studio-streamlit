@@ -232,4 +232,27 @@ _merged = TimelineExtractor()._merge_fragments([dict(d) for d in _frags])
 ok(len(_merged) == 2 and _merged[0]["text"].endswith("ပါတယ်။"),
    "fragment lines merged into complete sentences")
 
+# 17 ── v1.6: Burmese sentence-completeness detector on the owner's real
+#       examples (fragments DO end with "။" — punctuation is not enough)
+from recapstudio.ai import sentence_complete
+for _frag in ("နှစ်ခြင်းနေတဲ့ တိုက်တန်းနှစ်ပေါ်က မခင်တစ်ဦးက။",
+              "ပြင်သစ်လို ပြောပေမဲ့ နာမည်၊ နေရပ် ပြောဖို့ ငယ်လွန်း။",
+              "ဒါပေမဲ့ ကလေးတွေ ဓာတ်ပုံ ပြင်သစ်သတင်းစာမှာ ပါလာတော့။",
+              "အမေရိကမှာ ဘဝသစ်စဖို့။",
+              "သူမကတော့ ဒီအကြောင်းတွေကို လုံးဝမသိခဲ့ဘဲ။",
+              "သားလေးတွေနဲ့ ပြန်လည်ဆုံစည်းဖို့ အတ္တလတ္တိတ်သမုဒ္ဒရာကို။"):
+    ok(not sentence_complete(_frag, "my"), f"fragment detected: {_frag[:18]}…")
+for _full in ("သူက သားတွေနဲ့ မလိုက်ဘဲ သင်္ဘောနဲ့ အတူနစ်မြုပ်ခဲ့တယ်။",
+              "ရက်သတ္တပတ်များစွာ ကြာသည်အထိ လာခေါ်သူ မရှိ။"):
+    ok(sentence_complete(_full, "my"), f"complete sentence kept: {_full[:18]}…")
+_pair = [
+    {"start": 0.0, "end": 4.0, "speaker": "",
+     "text": "နှစ်ခြင်းနေတဲ့ တိုက်တန်းနှစ်ပေါ်က မခင်တစ်ဦးက"},
+    {"start": 4.0, "end": 9.0, "speaker": "",
+     "text": "သူက သားတွေနဲ့ မလိုက်ဘဲ သင်္ဘောနဲ့ အတူနစ်မြုပ်ခဲ့တယ်။"},
+]
+_m2 = TimelineExtractor()._merge_fragments([dict(d) for d in _pair])
+ok(len(_m2) == 1 and sentence_complete(_m2[0]["text"], "my"),
+   "screenshot pair merged into one complete line")
+
 print(f"\nALL {checks} CHECKS PASSED → {out}")

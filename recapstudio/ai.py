@@ -593,6 +593,8 @@ RECAP VOICE — NON-NEGOTIABLE (မြန်မာ):
 - လူပြော မြန်မာစကား စစ်စစ် (စကားပြော ဟန်) နဲ့ပဲ ရေးပါ။ စာအုပ်/ရုံးသုံး ဟန်၊ ဘာသာပြန် ဟန် လုံးဝ မသုံးရ။
 - ဘာသာပြန် မလုပ်ပါနဲ့ — ပြန်ပြောပါ: မူရင်း ဗီဒီယိုက အင်္ဂလိပ်လို (သို့ အခြား ဘာသာနဲ့) ပြောထားရင် စာကြောင်း တစ်ကြောင်းချင်းကို လိုက်ပြီး တိုက်ရိုက် ပြန်ခြင်း လုံးဝ မလုပ်ရ (အဲဒါက နားထောင်လို့ မကောင်းတဲ့ "တုံးတိ" ဘာသာပြန် ဖြစ်စေတယ်)။ အရင် အဖြစ်အပျက်ကို နားလည်ပါ၊ ပြီးမှ မြန်မာ ဇာတ်လမ်းပြောသူ တစ်ယောက် ကိုယ်ပိုင် စကားနဲ့ ပြန်ပြောသလို ရေးပါ။
 - လိုင်းတိုင်းသည် ပြီးပြည့်စုံတဲ့ ဝါကျ ဖြစ်ရမည် — အဆုံးမှာ "။" အမြဲ ပါရမည်။ အတွေးတပိုင်း၊ ကြိယာ မပါတဲ့ အပိုင်းအစ၊ စကားစပ် အဆတ်အပြတ် မရေးရ။
+- ဝါကျ တစ်ကြောင်းကို လိုင်း နှစ်လိုင်း ခွဲမရေးရ (အလွန် အရေးကြီး): လိုင်း တစ်ခုချင်းစီကို သီးခြား ဖတ်ကြည့်ရင် ဝါကျ အပြည့် ဖြစ်နေရမည်။ "…တစ်ဦးက။" "…ပါလာတော့။" "…ဘဝသစ်စဖို့။" "…မသိခဲ့ဘဲ။" "…သမုဒ္ဒရာကို။" "…ခေါ်ပြေးခဲ့တာ။" ဆိုတဲ့ subordinate အဆုံးသတ်တွေနဲ့ လိုင်း လုံးဝ မဆုံးရ — အဲဒါ ဇာတ်လမ်း ပြတ်သွားသလို ဖြစ်ပြီး နားထောင် မကောင်းဆုံး အမှားပါ။
+- ပြည့်ပြည့်စုံစုံ ရေးပါ: ဇာတ်ဝင် တစ်ချက်စီမှာ ဘယ်သူက၊ ဘာလုပ်တယ်၊ ဘာကြောင့် လုပ်တယ်၊ ဘာဆက်ဖြစ်တယ် ဆိုတာ ပါအောင် ရေးပါ။ သတင်းခေါင်းစဉ် လို အချက် ၄-၅ လုံးတည်း စာရင်းချတာ မလုပ်ရ — နားထောင်သူ မြင်ကွင်းထဲ မြင်လာအောင် ပြည့်စုံတဲ့ ဝါကျ ရေးပါ။
 - အပိုင်းအစတွေ မခွဲပါနဲ့: ဆက်စပ်တဲ့ အချက်တွေကို တစ်လိုင်းထဲ သဘာဝကျအောင် ပေါင်းပြောပါ။ ၅-၁၀ စက္ကန့်စာ ဇာတ်ဝင် တစ်ချက် = လိုင်း တစ်လိုင်း ကို ပိုနှစ်သက်ပါ — ၂-၃ စက္ကန့် တိုတို အစအနတွေ အများကြီး မလုပ်ရ။
 - လိုင်းတိုင်းသည် အဲဒီ အချိန် screen ပေါ်မှာ တကယ် မြင်နေရတဲ့ အရာ (ဘယ်သူ၊ ဘာလုပ်နေတယ်၊ ဘယ်နေရာ၊ မျက်နှာ အမူအရာ) ကိုပဲ ကွက်တိ ပြောရမည်။ မမြင်ရတာ၊ မသေချာတာ မထည့်ရ။
 - တားမြစ် generic စကားများ (လုံးဝ မသုံးရ): "ဇာတ်လမ်း စတင်ပါပြီ", "ဒီဇာတ်လမ်းမှာ", "အခုဆိုရင်", "ဆက်လက် စောင့်ကြည့်ရအောင်", "ဘာတွေ ဖြစ်လာမလဲ", "သူတို့ စကားပြောနေကြပါတယ်" (ဘာအကြောင်း ပြောနေတယ်ဆိုတာ မပါဘဲ), "အံ့ဩစရာ ကောင်းပါတယ်" (အကြောင်းရင်း မပါဘဲ)။
@@ -610,6 +612,7 @@ DUBBING VOICE — NON-NEGOTIABLE (မြန်မာ):
 RECAP VOICE — NON-NEGOTIABLE:
 - Write like a real human recap narrator talking, not a summary writer. Every line must describe EXACTLY what is visible on screen in that moment — who, what action, where, what emotion. Never invent or generalise.
 - RETELL, never translate: if the source speaks another language, understand the beat and retell it in your own natural words. Sentence-by-sentence literal translation produces wooden, choppy narration and is banned. Every line must be one COMPLETE sentence with final punctuation — no fragments, no thoughts split across two lines. Merge related micro-facts into one flowing 5-10 second line instead of many 2-3 second scraps.
+- NEVER split one sentence across two entries, and never end an entry on a subordinate fragment ("...because he", "...to start a new life.", "...the Atlantic Ocean."). Read alone, every entry must still be a full grammatical sentence. Write FULLY: include who did what, why, and what came of it — a listener must be able to picture the beat from the line alone.
 - BANNED generic filler: "In this video", "Let's see what happens next", "Things take a turn", "Little did he know", "Meanwhile" (without concrete content), or any line that could fit any movie.
 - Concrete details only: names, objects, places, actions. One line = one scene beat. Vary sentence endings; keep it punchy and spoken.'''
     else:
@@ -820,6 +823,62 @@ def find_gaps(dialogues: list[dict], duration: float, min_gap: float,
     return gaps
 
 
+# ── sentence completeness (Burmese fragments are the #1 quality killer) ──
+#: endings that CLOSE a Burmese sentence (finite verb / final particle)
+_MY_COMPLETE_SUFFIXES = (
+    "ပါတယ်", "တယ်", "သည်", "မယ်", "ပါ", "လေ", "ပေါ့", "ပြီ", "ဘူး", "ရှိ",
+    "ဖြစ်", "သွား", "လာ", "နေ", "ထား", "ပေး", "ယူ", "ရောက်", "ရ", "စေ",
+)
+#: endings that leave a Burmese sentence DANGLING (subordinate clauses,
+#: case particles, nominalisers) — a line ending like this is a fragment
+_MY_FRAGMENT_SUFFIXES = (
+    "တော့", "ဖို့", "ကို", "မှာ", "ထဲ", "ပေါ်", "နဲ့", "ပြီး", "လို့", "မို့",
+    "ရင်", "တဲ့", "တာ", "ဘဲ", "ပဲ", "လွန်း", "အောင်", "ထိ", "၍", "သော",
+    "သည့်", "မည့်", "စွာ", "ချင်း", "ရင်း",
+)
+
+
+def sentence_complete(text: str, lang: str = "my") -> bool:
+    """Heuristic: can this line stand alone as a finished sentence?
+
+    Gemini loves splitting ONE Burmese sentence across several timestamp
+    lines, each chunk closed with "။" — grammatically they are fragments
+    ("အမေရိကမှာ ဘဝသစ်စဖို့။", "သူမကတော့ ဒီအကြောင်းတွေကို လုံးဝမသိခဲ့ဘဲ။") and
+    they sound terrible read aloud. Punctuation alone cannot detect them;
+    the sentence-final suffix can.
+    """
+    t = (text or "").strip()
+    if not t:
+        return True
+    core = t.rstrip("။.!?…\"'” ")
+    if not core:
+        return True
+    words = core.split()
+    last = words[-1] if words else core
+    if lang == "my":
+        for suffix in _MY_COMPLETE_SUFFIXES:
+            if last.endswith(suffix):
+                return True
+        for suffix in _MY_FRAGMENT_SUFFIXES:
+            if last.endswith(suffix):
+                return False
+        # subject marker "…က" (noun + က) with a vowel sign before it
+        if last.endswith("က") and len(last) >= 2 and last[-2] in "ာိီုူေဲဳံး့":
+            return False
+        # a bare verb root ("ကလေးပုံမြင်") is only a sentence when the
+        # writer actually closed it with "။" — unpunctuated, it is a scrap
+        return t.endswith(("။", ".", "!", "?", "…"))
+    if not t.endswith((".", "!", "?")):
+        return False
+    return last.lower().strip(",;:") not in {
+        "the", "a", "an", "and", "but", "or", "to", "of", "in", "on", "with",
+        "because", "when", "while", "who", "which", "that", "as", "by",
+        "for", "from",
+    }
+
+
+
+
 class TimelineExtractor:
     """Full pipeline: chunked analysis + coverage sweep."""
 
@@ -931,6 +990,7 @@ class TimelineExtractor:
         dialogues, filled, longest = self._coverage_sweep(dialogues, duration, video_path)
         # ── join chopped fragments into complete lines (recap only) ────
         dialogues = self._merge_fragments(dialogues)
+        dialogues = self._repair_fragments(dialogues)
         # ── per-minute exact fit: no line may overrun its scene/minute ──
         dialogues, fit_report = self._enforce_minute_fit(dialogues, duration)
         report = self._coverage(dialogues, duration, filled, per_chunk, longest)
@@ -1262,10 +1322,12 @@ class TimelineExtractor:
         Sentence-by-sentence output (worst with narration-dense sources)
         leaves half-thoughts like "ဒါပေမဲ့ ကလေးပုံမြင်" as standalone lines —
         wooden to hear and impossible to voice naturally. In Recap mode, a
-        line that does not end a sentence and is immediately followed by
-        its continuation is merged with it, as long as the combined line
-        still fits the combined window (25% slack — retime absorbs that).
-        Dubbing is untouched: its lines are real speaker turns.
+        line that is not a complete sentence (see :func:`sentence_complete`
+        — Burmese fragments often DO end with "။", so punctuation alone is
+        not enough) and is immediately followed by its continuation is
+        merged with it, as long as the combined line stays reasonable
+        (≤16s window, ≤35% over the naive speech estimate — retime absorbs
+        the rest). Dubbing is untouched: its lines are real speaker turns.
         """
         if self.fill_mode != "continuous":
             return dialogues
@@ -1279,9 +1341,9 @@ class TimelineExtractor:
                 gap = float(d.get("start", 0.0)) - float(prev.get("end", 0.0))
                 joined = f"{prev_text} {str(d.get('text', '')).strip()}".strip()
                 window = float(d.get("end", 0.0)) - float(prev.get("start", 0.0))
-                if (prev_text and not prev_text.endswith(("။", "!", "?", "…", '"'))
-                        and gap <= 1.5 and window > 0
-                        and estimate_speech_seconds(joined, self.lang) <= window * 1.25):
+                if (prev_text and not sentence_complete(prev_text, self.lang)
+                        and gap <= 1.5 and 0 < window <= 16.0
+                        and estimate_speech_seconds(joined, self.lang) <= window * 1.35):
                     prev["text"] = joined
                     prev["end"] = d.get("end", prev.get("end"))
                     merged += 1
@@ -1290,6 +1352,86 @@ class TimelineExtractor:
         if merged:
             self.log(f"🧩 Fragment merge: အပိုင်းအစ {merged} ခု ကို ဝါကျ အပြည့် လိုင်းများ အဖြစ် ပြန်ပေါင်းပြီးပါပြီ")
         return out
+
+    def _repair_fragments(self, dialogues: list[dict]) -> list[dict]:
+        """AI-rewrite any lines that are STILL sentence fragments.
+
+        Merging cannot fix every fragment (a video may end on one, or the
+        continuation is too far away). One batched Gemini call rewrites
+        each fragment into a complete, natural sentence using its
+        neighbours as context — same facts, similar length, finished verb.
+        Recap mode only; without a client the lines are left as-is.
+        """
+        if self.fill_mode != "continuous" or self.client is None:
+            return dialogues
+        from .tts import chars_per_second
+        cps = chars_per_second(self.lang)
+        lines = sorted(dialogues, key=lambda d: float(d.get("start", 0.0)))
+        bad = [i for i, d in enumerate(lines)
+               if not sentence_complete(str(d.get("text", "")), self.lang)]
+        if not bad:
+            return lines
+        batch = []
+        for i in bad[:24]:
+            d = lines[i]
+            window = max(1.0, float(d.get("end", 0.0)) - float(d.get("start", 0.0)))
+            batch.append({
+                "index": i,
+                "max_chars": int(window * cps * 1.2),
+                "before": str(lines[i - 1].get("text", "")) if i > 0 else "",
+                "text": str(d.get("text", "")),
+                "after": str(lines[i + 1].get("text", "")) if i + 1 < len(lines) else "",
+            })
+        listing = "\n".join(
+            f"- index {b['index']} (max {b['max_chars']} chars): \"{b['text']}\""
+            f"  [context before: \"{b['before']}\" / after: \"{b['after']}\"]"
+            for b in batch)
+        lang_word = "Burmese" if self.lang == "my" else "English"
+        prompt = f"""These {lang_word} recap lines are sentence FRAGMENTS — each one stops mid-thought
+(it ends on a subordinate clause or a particle instead of a finished verb), so a narrator
+cannot read it naturally.
+
+{listing}
+
+Rewrite EACH fragment into ONE complete, natural, flowing sentence:
+1. Keep its facts, names and meaning. Use the before/after lines ONLY as context to know
+   what the finished thought is — do not copy them and do not move facts between lines.
+2. The sentence must END with a finished verb and final punctuation. It may borrow the
+   obvious missing ending (e.g. a fragment ending "...ဘဝသစ်စဖို့" becomes
+   "...ဘဝသစ် စတင်ဖို့ ထွက်ခွာခဲ့ပါတယ်" only when the context supports it).
+3. Stay within the max characters and keep the natural spoken style. No generic filler.
+4. Return STRICT JSON only: {{"lines": [{{"index": 0, "text": "..."}}]}}"""
+        schema = {"type": "object", "properties": {"lines": {
+            "type": "array", "items": {"type": "object", "properties": {
+                "index": {"type": "integer"}, "text": {"type": "string"}},
+                "required": ["index", "text"]}}}, "required": ["lines"]}
+        try:
+            raw = self.client.generate_json(self.model, [prompt], schema,
+                                            temperature=0.3, max_tokens=8192,
+                                            progress=self.progress, cancel=self.cancel)
+            data = json.loads(raw[raw.find("{"): raw.rfind("}") + 1])
+        except CancelledError:
+            raise
+        except Exception as exc:
+            self.log(f"⚠️ fragment repair failed: {exc}")
+            return lines
+        fixed = 0
+        for item in data.get("lines", []):
+            try:
+                i = int(item["index"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if not (0 <= i < len(lines)):
+                continue
+            text = re.sub(r"\s+", " ", str(item.get("text", ""))).strip()
+            old = str(lines[i].get("text", ""))
+            if (text and sentence_complete(text, self.lang)
+                    and len(text) <= max(len(old) * 1.45, len(old) + 12)):
+                lines[i]["text"] = text
+                fixed += 1
+        if fixed:
+            self.log(f"🪡 Fragment repair: အပိုင်းအစ {fixed} လိုင်း ကို ဝါကျ အပြည့် ပြန်ရေးပြီးပါပြီ")
+        return lines
 
     def _enforce_minute_fit(self, dialogues: list[dict],
                             duration: float) -> tuple[list[dict], dict]:
