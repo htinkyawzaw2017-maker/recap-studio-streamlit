@@ -45,6 +45,9 @@ class Span:
     speed: float = 1.0
     freeze: float = 0.0
     slot_start: float = 0.0
+    #: source seconds dropped after this span (Recap "tighten": the dead
+    #: tail of a scene whose narration already finished is not emitted)
+    dropped: float = 0.0
 
     @property
     def src_len(self) -> float:
@@ -57,22 +60,40 @@ class Span:
 
 
 def compute_spans(windows: list[tuple[float, float, float, int]],
-                  duration: float) -> list[Span]:
+                  duration: float, *, tighten_pause: float | None = None,
+                  tighten_threshold: float = 1.2) -> list[Span]:
     """Build spans covering ``[0, duration]`` of the source.
 
     ``windows`` are ``(src_start, src_end, speech_seconds, line_index)``
     sorted by start; the spaces between them become 1.0x gap spans.
+
+    Recap tightening (``tighten_pause`` set): when a line's speech ends
+    well before its window does, the rest of that window used to play in
+    silence — the listener heard the narrator "speak when he feels like
+    it". Now the dead tail of the picture is dropped instead: the slot
+    ends ``tighten_pause`` seconds after the speech, and the next line's
+    scene starts right away. The voice then runs continuously while every
+    line still sits on its own scene. (Dubbing passes ``None``: its
+    timing must stay faithful to the source.)
     """
     spans: list[Span] = []
     cursor = 0.0
+    drop_next_gap = False
     for start, end, speech, line_index in sorted(windows):
-        start = max(cursor, min(float(start), duration))
+        start = min(float(start), duration)
         end = max(start, min(float(end), duration))
+        if drop_next_gap:
+            # previous span was tightened: skip the footage in between too
+            cursor = max(cursor, start)
+            drop_next_gap = False
+        start = max(cursor, start) if spans or cursor > 0 else start
         if start > cursor + 0.01:
             spans.append(Span(src_start=cursor, src_end=start))
+            cursor = start
         src_len = end - start
         speech = max(0.0, float(speech))
-        speed, freeze = 1.0, 0.0
+        speed, freeze, dropped = 1.0, 0.0, 0.0
+        span_end = end
         if speech > src_len and src_len > 0.05:
             needed = src_len / speech
             if needed >= MIN_VIDEO_SPEED:
@@ -80,10 +101,18 @@ def compute_spans(windows: list[tuple[float, float, float, int]],
             else:
                 speed = MIN_VIDEO_SPEED
                 freeze = max(0.0, speech - src_len / MIN_VIDEO_SPEED)
-        spans.append(Span(src_start=start, src_end=end, speech=speech,
-                          line_index=line_index, speed=speed, freeze=freeze))
+        elif (tighten_pause is not None and speech > 0.05
+              and src_len - speech > tighten_threshold):
+            keep = speech + tighten_pause
+            if keep < src_len:
+                span_end = start + keep
+                dropped = end - span_end
+        spans.append(Span(src_start=start, src_end=span_end, speech=speech,
+                          line_index=line_index, speed=speed, freeze=freeze,
+                          dropped=dropped))
         cursor = end
-    if cursor < duration - 0.01:
+        drop_next_gap = dropped > 0.0
+    if cursor < duration - 0.01 and not drop_next_gap:
         spans.append(Span(src_start=cursor, src_end=duration))
     slot = 0.0
     for span in spans:

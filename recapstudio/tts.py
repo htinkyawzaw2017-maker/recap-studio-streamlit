@@ -553,7 +553,8 @@ class TTSEngine:
 
         if retime:
             return self._assemble_retimed(planned, clips, dialogues, duration,
-                                          work_dir, tag, progress, warnings)
+                                          work_dir, tag, progress, warnings,
+                                          strict_timing=strict_timing)
 
         # ── assemble: silence gaps + clips, exactly `duration` long ─────
         if progress:
@@ -615,7 +616,7 @@ class TTSEngine:
     def _assemble_retimed(self, planned: list[PlannedLine], clips: dict[int, Path],
                           dialogues: list[dict], duration: float, work_dir: Path,
                           tag: str, progress: ProgressFn,
-                          warnings: list[str]) -> MixResult:
+                          warnings: list[str], *, strict_timing: bool = False) -> MixResult:
         """Assemble the narration on the AUDIO-LED (retimed) timeline.
 
         Every natural take is placed at its slot start; the slot is exactly
@@ -634,7 +635,10 @@ class TTSEngine:
             line.speech_seconds = speech
             w_end = line.window_end_seconds or (line.start + line.target_seconds)
             windows.append((line.start, max(w_end, line.start + 0.05), speech, line.index))
-        spans = compute_spans(windows, duration)
+        # Recap mode: tighten dead picture tails so the voice speaks
+        # continuously. Dubbing (strict) keeps the source timing untouched.
+        spans = compute_spans(windows, duration,
+                              tighten_pause=None if strict_timing else 0.45)
         total = total_duration(spans)
         span_by_line = {sp.line_index: sp for sp in spans if sp.line_index >= 0}
 
@@ -682,6 +686,12 @@ class TTSEngine:
             elif sp.slot_len - sp.speech > 1.2:
                 silent_windows.append({"start": round(sp.slot_start + sp.speech, 2),
                                        "end": round(sp.slot_start + sp.slot_len, 2)})
+        dropped_total = sum(sp.dropped for sp in spans)
+        if dropped_total > 1.0:
+            warnings.append(
+                f"အသံ တောက်လျှောက် ဖြစ်အောင် အသံမပါဘဲ ကျန်နေတဲ့ ရုပ်အပိုင်း "
+                f"{dropped_total:.0f}s ကို ဖြတ်ချိန်ထားပါသည် (လိုင်း တစ်ခုပြီးတိုင်း "
+                f"0.45s ပဲ နားပါသည်)")
         slowed = [sp for sp in spans if sp.speed < 0.999]
         frozen = sum(sp.freeze for sp in spans)
         if slowed:

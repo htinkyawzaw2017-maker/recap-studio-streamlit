@@ -100,4 +100,21 @@ retime_video(str(src), rt_mix.spans, rt_vid)
 ok(abs(get_media_duration(str(rt_vid)) - rt_mix.duration) < 0.35,
    "retimed video and narration lengths match (A/V sync)")
 
+# 8 ── tighten: Recap voice must run continuously (no dead picture tails),
+#      while Dubbing keeps the source timing exactly
+short_dialogues = [
+    {"start": 0.0, "end": 6.0, "speaker": "Recap", "text": "ဇာတ်လမ်း စပါပြီ။"},
+    {"start": 6.0, "end": 12.0, "speaker": "Recap", "text": "သူရဲကောင်း ရောက်လာပါတယ်။"},
+]
+tg_mix = engine.build_narration(dialogues=short_dialogues, voice_cfg=_voice_config("my", "thiha"),
+                                duration=info["duration"], work_dir=work, tag="tg", retime=True)
+ok(tg_mix.duration < info["duration"] - 4
+   and all((g["end"] - g["start"]) <= 0.6 for g in tg_mix.gaps),
+   "recap tighten: no silent stretch longer than 0.6s")
+dub_mix = engine.build_narration(dialogues=short_dialogues, voice_cfg=_voice_config("my", "thiha"),
+                                 duration=info["duration"], work_dir=work, tag="dub",
+                                 retime=True, strict_timing=True)
+ok(abs(dub_mix.duration - info["duration"]) < 0.4,
+   "dubbing stays faithful to source timing")
+
 print(f"\nALL {checks} CHECKS PASSED → {out}")
