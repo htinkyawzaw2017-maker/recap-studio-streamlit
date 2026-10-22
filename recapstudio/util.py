@@ -236,8 +236,11 @@ def clamp(value: float, low: float, high: float) -> float:
 #: Characters spoken per second by the neural voices we use. Burmese packs a
 #: whole syllable into 2-4 glyphs, so it lands lower than Latin text - using a
 #: single optimistic number made the model write lines that did not fit their
-#: window, which is one of the reasons narration ran out of sync.
-CHARS_PER_SECOND = {"my": 9.5, "en": 13.5}
+#: window, which is one of the reasons narration ran out of sync. v1.7:
+#: Burmese recalibrated to 12.0 (Myanmar read-speech corpus ≈13 chars/s,
+#: arXiv:2105.06253, minus pause headroom) and aligned with tts.py so the
+#: estimator and the budget never disagree again.
+CHARS_PER_SECOND = {"my": 12.0, "en": 13.5}
 
 
 def estimate_speech_seconds(text: str, lang: str = "my", chars_per_second: float = 0.0) -> float:

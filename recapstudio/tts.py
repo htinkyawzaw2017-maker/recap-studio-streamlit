@@ -71,12 +71,16 @@ PHONETICS_MM = {
 
 
 # ── speaking-rate budget (v4.3.1) ────────────────────────────────────────
-#: Measured edge-tts output at rate "+0%" (natural, unhurried delivery).
-#: Burmese neural voices speak ~10.5 characters per second, English ~14.5
-#: (≈2.6 words/s). Everything that plans *how much text* may sit inside a
-#: window derives from these two numbers, so the AI, the subtitle writer and
-#: the voice engine all agree instead of each guessing.
-CHARS_PER_SECOND = {"my": 10.5, "en": 14.5}
+#: Speaking-rate budget at rate "+0%" (natural, unhurried delivery).
+#: Burmese: recalibrated in v1.7 toward the Myanmar read-speech corpus
+#: (~121 chars per 9.19s utterance ≈ 13 chars/s, arXiv:2105.06253) — the
+#: old 10.5 over-estimated every line's spoken length by ~25%, which made
+#: the fit passes shorten lines that would have fitted, chopping the
+#: narration. 12.0 keeps a little pause headroom under the corpus figure.
+#: English ~14.5 (≈2.6 words/s). Everything that plans *how much text* may
+#: sit inside a window derives from these numbers, so the AI, the subtitle
+#: writer and the voice engine all agree instead of each guessing.
+CHARS_PER_SECOND = {"my": 12.0, "en": 14.5}
 #: how much faster than natural we are willing to read before it sounds rushed
 COMFORT_SPEEDUP = 1.12
 
