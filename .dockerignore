@@ -1,0 +1,11 @@
+.git
+__pycache__
+*.pyc
+workspace
+output
+data
+tests
+*.mp4
+*.mp3
+*.zip
+.muse-github-snapshot-sync.json

@@ -69,6 +69,10 @@ WORK_DIR.mkdir(parents=True, exist_ok=True)
 st.markdown("""
 <style>
   .stApp { background: linear-gradient(180deg, #0b1020 0%, #101736 220px, #0e1220 100%); }
+  /* Hide the script editor's floating toolbar — the little + / eye /
+     download / search / fullscreen buttons that pop up over the text
+     (owner feedback 2026-10-23). Editing itself is unaffected. */
+  [data-testid="stDataFrame"] [data-testid="stElementToolbar"] { display: none !important; }
   .hero {
     background: linear-gradient(120deg, #6d28d9 0%, #db2777 55%, #f59e0b 130%);
     border-radius: 20px; padding: 22px 28px; color: #fff;
