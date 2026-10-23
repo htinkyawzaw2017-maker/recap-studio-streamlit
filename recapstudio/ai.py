@@ -484,6 +484,23 @@ def _regex_salvage(text: str) -> Optional[dict]:
 
 
 # ── chunk planning ───────────────────────────────────────────────────────
+def line_is_terse(text: str, window: float, lang: str = "my") -> bool:
+    """A grammatically closed but caption-like line.
+
+    It passes :func:`sentence_complete` (it ends with "။") yet speaks for
+    under ~3.2s, or fills under half of a ≥4s window — e.g. "သူဟာ လူတိုင်း။"
+    Models write these at the START of a video (titles, establishing
+    shots) while the middle gets full prose, which is exactly the
+    "beginning chopped, middle full" complaint. Recap narration must read
+    as flowing prose everywhere, so terse lines get merged or expanded.
+    """
+    text = (text or "").strip()
+    if not text or window < 4.0:
+        return False
+    est = estimate_speech_seconds(text, lang)
+    return est < 3.2 or est < window * 0.5
+
+
 def plan_chunks(duration: float, max_seconds: int | None = None,
                 target_chunks: int | None = None) -> list[tuple[float, float]]:
     max_seconds = max_seconds or config.settings.max_chunk_seconds
@@ -596,6 +613,7 @@ RECAP VOICE — NON-NEGOTIABLE (မြန်မာ):
 - ဝါကျ တစ်ကြောင်းကို လိုင်း နှစ်လိုင်း ခွဲမရေးရ (အလွန် အရေးကြီး): လိုင်း တစ်ခုချင်းစီကို သီးခြား ဖတ်ကြည့်ရင် ဝါကျ အပြည့် ဖြစ်နေရမည်။ "…တစ်ဦးက။" "…ပါလာတော့။" "…ဘဝသစ်စဖို့။" "…မသိခဲ့ဘဲ။" "…သမုဒ္ဒရာကို။" "…ခေါ်ပြေးခဲ့တာ။" ဆိုတဲ့ subordinate အဆုံးသတ်တွေနဲ့ လိုင်း လုံးဝ မဆုံးရ — အဲဒါ ဇာတ်လမ်း ပြတ်သွားသလို ဖြစ်ပြီး နားထောင် မကောင်းဆုံး အမှားပါ။
 - ပြည့်ပြည့်စုံစုံ ရေးပါ: ဇာတ်ဝင် တစ်ချက်စီမှာ ဘယ်သူက၊ ဘာလုပ်တယ်၊ ဘာကြောင့် လုပ်တယ်၊ ဘာဆက်ဖြစ်တယ် ဆိုတာ ပါအောင် ရေးပါ။ သတင်းခေါင်းစဉ် လို အချက် ၄-၅ လုံးတည်း စာရင်းချတာ မလုပ်ရ — နားထောင်သူ မြင်ကွင်းထဲ မြင်လာအောင် ပြည့်စုံတဲ့ ဝါကျ ရေးပါ။
 - Hook (hook_line1) သည် ပထမ ဝါကျကတည်းက အန္တရာယ်/ရည်မှန်းချက် (ဘယ်သူက ဘာလိုချင်တယ်၊ မရရင် ဘာဖြစ်မယ်) ကို တန်းချရမည် — "ဒီနေ့တော့ ဇာတ်လမ်းတစ်ပုဒ် ကြည့်ကြရအောင်" လို အစချီ စကား လုံးဝ မသုံးရ။
+- Caption ပုံစံ လိုင်း တိုတိုတုတ်တုတ် လုံးဝ မရေးရ: နာမည်/နေရာ/အချိန် ပြောရုံ လိုင်းမျိုး (ဥပမာ "သူဟာ လူတိုင်း။" "အဲဒီအချိန်မှာ။") တားမြစ်တယ် — အဲဒီ အချက်ကို ဘာဖြစ်တယ် ဆိုတာနဲ့ တစ်ဝါကျတည်း ပေါင်းရေးပါ။ လိုင်း တစ်ခုချင်းစီ သူ့ window ရဲ့ စာလုံး budget ရဲ့ အနည်းဆုံး ၇၀% လောက် ပြည့်အောင် ရေးပါ။ အထူးသဖြင့် ဇာတ်လမ်း အစပိုင်း လိုင်းတွေ — အစကို ခေါင်းစဉ်/မြင်ကွင်း ဖတ်သလို တိုတိုချည်း မရေးဘဲ အလယ်ပိုင်းနဲ့ အရည်အသွေး တစ်ပြေးညီ ပြည့်ပြည့်စုံစုံ ရေးပါ။
 - အပိုင်းအစတွေ မခွဲပါနဲ့: ဆက်စပ်တဲ့ အချက်တွေကို တစ်လိုင်းထဲ သဘာဝကျအောင် ပေါင်းပြောပါ။ ၅-၁၀ စက္ကန့်စာ ဇာတ်ဝင် တစ်ချက် = လိုင်း တစ်လိုင်း ကို ပိုနှစ်သက်ပါ — ၂-၃ စက္ကန့် တိုတို အစအနတွေ အများကြီး မလုပ်ရ။
 - လိုင်းတိုင်းသည် အဲဒီ အချိန် screen ပေါ်မှာ တကယ် မြင်နေရတဲ့ အရာ (ဘယ်သူ၊ ဘာလုပ်နေတယ်၊ ဘယ်နေရာ၊ မျက်နှာ အမူအရာ) ကိုပဲ ကွက်တိ ပြောရမည်။ မမြင်ရတာ၊ မသေချာတာ မထည့်ရ။
 - တားမြစ် generic စကားများ (လုံးဝ မသုံးရ): "ဇာတ်လမ်း စတင်ပါပြီ", "ဒီဇာတ်လမ်းမှာ", "အခုဆိုရင်", "ဆက်လက် စောင့်ကြည့်ရအောင်", "ဘာတွေ ဖြစ်လာမလဲ", "သူတို့ စကားပြောနေကြပါတယ်" (ဘာအကြောင်း ပြောနေတယ်ဆိုတာ မပါဘဲ), "အံ့ဩစရာ ကောင်းပါတယ်" (အကြောင်းရင်း မပါဘဲ)။
@@ -614,6 +632,7 @@ RECAP VOICE — NON-NEGOTIABLE:
 - Write like a real human recap narrator talking, not a summary writer. Every line must describe EXACTLY what is visible on screen in that moment — who, what action, where, what emotion. Never invent or generalise.
 - RETELL, never translate: if the source speaks another language, understand the beat and retell it in your own natural words. Sentence-by-sentence literal translation produces wooden, choppy narration and is banned. Every line must be one COMPLETE sentence with final punctuation — no fragments, no thoughts split across two lines. Merge related micro-facts into one flowing 5-10 second line instead of many 2-3 second scraps.
 - NEVER split one sentence across two entries, and never end an entry on a subordinate fragment ("...because he", "...to start a new life.", "...the Atlantic Ocean."). Read alone, every entry must still be a full grammatical sentence. Write FULLY: include who did what, why, and what came of it — a listener must be able to picture the beat from the line alone.
+- No caption-style scraps: an entry that only names a person, place or time ("He was everyone.", "At that moment.") is banned — fold it into the sentence about what happens. Fill at least ~70% of each entry's character budget, especially the OPENING entries: the beginning must read with the same fullness as the middle, never like reading titles or scene labels.
 - BANNED generic filler: "In this video", "Let's see what happens next", "Things take a turn", "Little did he know", "Meanwhile" (without concrete content), or any line that could fit any movie.
 - Concrete details only: names, objects, places, actions. One line = one scene beat. Vary sentence endings; keep it punchy and spoken.'''
     else:
@@ -1325,10 +1344,12 @@ class TimelineExtractor:
         wooden to hear and impossible to voice naturally. In Recap mode, a
         line that is not a complete sentence (see :func:`sentence_complete`
         — Burmese fragments often DO end with "။", so punctuation alone is
-        not enough) and is immediately followed by its continuation is
-        merged with it, as long as the combined line stays reasonable
-        (≤16s window, ≤35% over the naive speech estimate — retime absorbs
-        the rest). Dubbing is untouched: its lines are real speaker turns.
+        not enough), or that is merely a terse caption-style scrap (see
+        :func:`line_is_terse`), and is immediately followed by its
+        continuation is merged with it, as long as the combined line stays
+        reasonable (≤16s window, ≤35% over the naive speech estimate —
+        retime absorbs the rest). Dubbing is untouched: its lines are real
+        speaker turns.
         """
         if self.fill_mode != "continuous":
             return dialogues
@@ -1339,10 +1360,12 @@ class TimelineExtractor:
             if out:
                 prev = out[-1]
                 prev_text = str(prev.get("text", "")).strip()
+                prev_window = float(prev.get("end", 0.0)) - float(prev.get("start", 0.0))
                 gap = float(d.get("start", 0.0)) - float(prev.get("end", 0.0))
                 joined = f"{prev_text} {str(d.get('text', '')).strip()}".strip()
                 window = float(d.get("end", 0.0)) - float(prev.get("start", 0.0))
-                if (prev_text and not sentence_complete(prev_text, self.lang)
+                if (prev_text and (not sentence_complete(prev_text, self.lang)
+                                   or line_is_terse(prev_text, prev_window, self.lang))
                         and gap <= 1.5 and 0 < window <= 16.0
                         and estimate_speech_seconds(joined, self.lang) <= window * 1.35):
                     prev["text"] = joined
@@ -1355,21 +1378,32 @@ class TimelineExtractor:
         return out
 
     def _repair_fragments(self, dialogues: list[dict]) -> list[dict]:
-        """AI-rewrite any lines that are STILL sentence fragments.
+        """AI-rewrite lines that are STILL fragments — or terse scraps.
 
         Merging cannot fix every fragment (a video may end on one, or the
-        continuation is too far away). One batched Gemini call rewrites
-        each fragment into a complete, natural sentence using its
-        neighbours as context — same facts, similar length, finished verb.
-        Recap mode only; without a client the lines are left as-is.
+        continuation is too far away), and it cannot fix caption-style
+        one-phrase lines that are grammatically closed but empty
+        ("သူဟာ လူတိုင်း။"). One batched Gemini call rewrites each into a
+        complete, full, natural sentence using its neighbours as context —
+        same facts, finished verb, filled out to its window. Acceptance is
+        judged against the line's WINDOW budget (not its old length: the
+        old 1.45×-of-old-length cap rejected exactly the expansions the
+        shortest lines needed). Recap mode only; without a client the
+        lines are left as-is.
         """
         if self.fill_mode != "continuous" or self.client is None:
             return dialogues
         from .tts import chars_per_second
         cps = chars_per_second(self.lang)
         lines = sorted(dialogues, key=lambda d: float(d.get("start", 0.0)))
-        bad = [i for i, d in enumerate(lines)
-               if not sentence_complete(str(d.get("text", "")), self.lang)]
+
+        def _needs_repair(d: dict) -> bool:
+            text = str(d.get("text", ""))
+            window = max(1.0, float(d.get("end", 0.0)) - float(d.get("start", 0.0)))
+            return (not sentence_complete(text, self.lang)
+                    or line_is_terse(text, window, self.lang))
+
+        bad = [i for i, d in enumerate(lines) if _needs_repair(d)]
         if not bad:
             return lines
         batch = []
@@ -1388,20 +1422,25 @@ class TimelineExtractor:
             f"  [context before: \"{b['before']}\" / after: \"{b['after']}\"]"
             for b in batch)
         lang_word = "Burmese" if self.lang == "my" else "English"
-        prompt = f"""These {lang_word} recap lines are sentence FRAGMENTS — each one stops mid-thought
-(it ends on a subordinate clause or a particle instead of a finished verb), so a narrator
-cannot read it naturally.
+        prompt = f"""These {lang_word} recap lines are BROKEN in one of two ways — each one either stops mid-thought
+(a fragment ending on a subordinate clause or particle instead of a finished verb), or it is a
+terse caption-style scrap that only names a person/place/time and says nothing ("သူဟာ လူတိုင်း။").
+A narrator cannot read either kind naturally, and they stand out against the full lines around them.
 
 {listing}
 
-Rewrite EACH fragment into ONE complete, natural, flowing sentence:
+Rewrite EACH line into ONE complete, full, natural, flowing sentence:
 1. Keep its facts, names and meaning. Use the before/after lines ONLY as context to know
    what the finished thought is — do not copy them and do not move facts between lines.
 2. The sentence must END with a finished verb and final punctuation. It may borrow the
    obvious missing ending (e.g. a fragment ending "...ဘဝသစ်စဖို့" becomes
    "...ဘဝသစ် စတင်ဖို့ ထွက်ခွာခဲ့ပါတယ်" only when the context supports it).
-3. Stay within the max characters and keep the natural spoken style. No generic filler.
-4. Return STRICT JSON only: {{"lines": [{{"index": 0, "text": "..."}}]}}"""
+3. For a terse scrap, EXPAND it: attach the who/where/what-happens that the context makes
+   obvious so the line carries a real beat like its neighbours do. Never invent new plot
+   facts, names or events that are not in the line or its context.
+4. Fill the line out toward its max characters (that is its time window) without padding
+   or generic filler, and keep the natural spoken style.
+5. Return STRICT JSON only: {{"lines": [{{"index": 0, "text": "..."}}]}}"""
         schema = {"type": "object", "properties": {"lines": {
             "type": "array", "items": {"type": "object", "properties": {
                 "index": {"type": "integer"}, "text": {"type": "string"}},
@@ -1416,18 +1455,20 @@ Rewrite EACH fragment into ONE complete, natural, flowing sentence:
         except Exception as exc:
             self.log(f"⚠️ fragment repair failed: {exc}")
             return lines
+        max_chars = {b["index"]: b["max_chars"] for b in batch}
         fixed = 0
         for item in data.get("lines", []):
             try:
                 i = int(item["index"])
             except (KeyError, TypeError, ValueError):
                 continue
-            if not (0 <= i < len(lines)):
+            if not (0 <= i < len(lines)) or i not in max_chars:
                 continue
             text = re.sub(r"\s+", " ", str(item.get("text", ""))).strip()
             old = str(lines[i].get("text", ""))
             if (text and sentence_complete(text, self.lang)
-                    and len(text) <= max(len(old) * 1.45, len(old) + 12)):
+                    and len(text) <= max_chars[i]
+                    and len(text) >= len(old) * 0.9):
                 lines[i]["text"] = text
                 fixed += 1
         if fixed:

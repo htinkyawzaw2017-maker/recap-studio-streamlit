@@ -255,4 +255,40 @@ _m2 = TimelineExtractor()._merge_fragments([dict(d) for d in _pair])
 ok(len(_m2) == 1 and sentence_complete(_m2[0]["text"], "my"),
    "screenshot pair merged into one complete line")
 
+# 18 ── v1.8: caption-style terse lines (complete but empty) at the start
+#       get merged into full lines, and the repair pass may EXPAND a
+#       terse line up to its window budget (the old 1.45x cap blocked it)
+from recapstudio.ai import line_is_terse
+ok(line_is_terse("သူဟာ လူတိုင်း။", 6.0, "my"), "terse caption line detected")
+ok(not line_is_terse("သူဟာ ရွာထဲက လူတိုင်း လေးစားရတဲ့ လူကြီး တစ်ဦး ဖြစ်ပါတယ်။", 6.0, "my"),
+   "full line is not terse")
+_captions = [
+    {"start": 0.0, "end": 5.0, "speaker": "", "text": "သူဟာ ရွာသား တစ်ဦးပါ။"},
+    {"start": 5.0, "end": 10.0, "speaker": "", "text": "သူ့မှာ သား နှစ်ယောက် ရှိပါတယ်။"},
+    {"start": 10.0, "end": 17.0, "speaker": "",
+     "text": "တစ်နေ့မှာတော့ မုန်တိုင်းကြီး တိုက်လာပြီး သူတို့ရဲ့ အိမ်လေး ပျက်စီးသွားခဲ့ပါတယ်။"},
+]
+_mc = TimelineExtractor()._merge_fragments([dict(d) for d in _captions])
+ok(len(_mc) == 2 and "ရွာသား" in _mc[0]["text"] and "သား နှစ်ယောက်" in _mc[0]["text"],
+   "opening caption lines merged into one full line")
+
+import json as _json
+
+
+class _FakeClient:
+    def generate_json(self, model, parts, schema, **kw):
+        return _json.dumps({"lines": [{"index": 0,
+            "text": "သူဟာ ရွာထဲက လူတိုင်း လေးစားရတဲ့ လူကြီး တစ်ဦး ဖြစ်ပါတယ်။"}]})
+
+
+_ex = TimelineExtractor()
+_ex.client = _FakeClient()
+_repaired = _ex._repair_fragments([
+    {"start": 0.0, "end": 8.0, "speaker": "", "text": "သူဟာ လူတိုင်း။"},
+    {"start": 8.0, "end": 15.0, "speaker": "",
+     "text": "တစ်နေ့မှာတော့ မုန်တိုင်းကြီး တိုက်လာပြီး သူတို့ရဲ့ အိမ်လေး ပျက်စီးသွားခဲ့ပါတယ်။"},
+])
+ok("လေးစားရတဲ့" in _repaired[0]["text"],
+   "repair pass expands a terse line up to its window budget")
+
 print(f"\nALL {checks} CHECKS PASSED → {out}")
