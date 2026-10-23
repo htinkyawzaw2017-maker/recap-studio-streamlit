@@ -11,11 +11,28 @@ App က ဒီ image ထဲမှာပဲ အကုန် ပါတယ် (ffmp
 - 48 နာရီ မသုံးရင် sleep ဖြစ်တယ်၊ ပြန်ဖွင့်ရင် ခဏ စောင့်ရတယ်။
 
 Steps:
-1. huggingface.co → New Space → SDK: **Docker** → name ပေး → Create.
-2. Space repo ထဲ ဒီ repo ရဲ့ ဖိုင်တွေ အကုန် တင်ပါ (GitHub ကနေ clone ပြီး
-   HF repo ကို push ရင် ရတယ်)။
-3. Build ပြီးရင် Space က app ကို port 7860 မှာ အလိုအလျောက် ဖွင့်ပေးတယ်
-   (Dockerfile က `$PORT` ကို ဖတ်တယ်)။
+1. **Account**: huggingface.co/join မှာ free account ဖွင့်ပါ။
+   ပြီးရင် Settings → **Access Tokens** → New token (type: **Write**)
+   တစ်ခု ထုတ်ထားပါ — push လုပ်တဲ့ အချိန် password နေရာမှာ သုံးရမယ်။
+2. **Space**: huggingface.co → New Space → name (ဥပမာ `recap-studio`) →
+   SDK: **Docker** → Visibility: Public → Create Space.
+3. **ဖိုင် တင်ပါ** (Mac Terminal မှာ):
+   ```bash
+   git clone https://github.com/htinkyawzaw2017-maker/recap-studio-streamlit app
+   git clone https://huggingface.co/spaces/<မင်း HF username>/recap-studio space
+   rsync -a --exclude .git app/ space/
+   cd space
+   cp space_README.md README.md
+   git add -A
+   git commit -m "Recap Studio"
+   git push        # username = HF username, password = အပေါ်က Write token
+   ```
+4. Space page မှာ Build လုပ်တာ စောင့်ပါ (ပထမ အကြိမ် မိနစ် အနည်းငယ်
+   ကြာနိုင်) — ပြီးရင် Space URL ကနေ app သုံးလို့ ရပြီ။ Gemini key တွေ
+   ပုံမှန် အတိုင်း app ထဲမှာပဲ ထည့်ပါ (server ပေါ် သိမ်းစရာ မလို)။
+
+ပိုမြန်ချင်ရင်: Space Settings → Hardware → **CPU Upgrade**
+(8 vCPU / 32 GB, HF docs အရ $0.03/hr) ကို နောက်မှ ပြောင်းလို့ ရတယ်။
 
 ## Option B — AWS EC2 (credit နဲ့ အမြန်ဆုံး)
 
