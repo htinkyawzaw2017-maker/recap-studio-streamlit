@@ -240,7 +240,14 @@ for _frag in ("နှစ်ခြင်းနေတဲ့ တိုက်တန�
               "ဒါပေမဲ့ ကလေးတွေ ဓာတ်ပုံ ပြင်သစ်သတင်းစာမှာ ပါလာတော့။",
               "အမေရိကမှာ ဘဝသစ်စဖို့။",
               "သူမကတော့ ဒီအကြောင်းတွေကို လုံးဝမသိခဲ့ဘဲ။",
-              "သားလေးတွေနဲ့ ပြန်လည်ဆုံစည်းဖို့ အတ္တလတ္တိတ်သမုဒ္ဒရာကို။"):
+              "သားလေးတွေနဲ့ ပြန်လည်ဆုံစည်းဖို့ အတ္တလတ္တိတ်သမုဒ္ဒရာကို။",
+              # v1.10: verb-less endings from the owner's Ji Gong recap —
+              # direction, dangling conjunction, bare noun phrase, participle
+              "အာဖူက ဘဲကင်ဆိုင်သို့။",
+              "ဂျီကုန်းက အာဖူကို ကလေးနှစ်ယောက်၊ ယောက်ျားလေးနှင့်။",
+              "အာဖူမျက်လုံးများ။",
+              "အာဖူက စားပွဲတွင် ထိုင်ကာ။",
+              "သူက ငိုလျက်။"):
     ok(not sentence_complete(_frag, "my"), f"fragment detected: {_frag[:18]}…")
 for _full in ("သူက သားတွေနဲ့ မလိုက်ဘဲ သင်္ဘောနဲ့ အတူနစ်မြုပ်ခဲ့တယ်။",
               "ရက်သတ္တပတ်များစွာ ကြာသည်အထိ လာခေါ်သူ မရှိ။"):
@@ -262,6 +269,12 @@ from recapstudio.ai import line_is_terse
 ok(line_is_terse("သူဟာ လူတိုင်း။", 6.0, "my"), "terse caption line detected")
 ok(not line_is_terse("သူဟာ ရွာထဲက လူတိုင်း လေးစားရတဲ့ လူကြီး တစ်ဦး ဖြစ်ပါတယ်။", 6.0, "my"),
    "full line is not terse")
+# v1.10: the old >=4s gate blinded this check for fast-cut drama (2-3s
+# segments) — a scrap in a short window is terse, a full line using its
+# whole short window is not
+ok(line_is_terse("အာဖူမျက်လုံးများ။", 2.0, "my"), "terse scrap in short window detected")
+ok(not line_is_terse("အာဖူက ထွက်ပြေးသွားသည်။", 2.0, "my"),
+   "full line filling short window is not terse")
 _captions = [
     {"start": 0.0, "end": 5.0, "speaker": "", "text": "သူဟာ ရွာသား တစ်ဦးပါ။"},
     {"start": 5.0, "end": 10.0, "speaker": "", "text": "သူ့မှာ သား နှစ်ယောက် ရှိပါတယ်။"},

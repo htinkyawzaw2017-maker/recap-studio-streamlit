@@ -493,12 +493,20 @@ def line_is_terse(text: str, window: float, lang: str = "my") -> bool:
     shots) while the middle gets full prose, which is exactly the
     "beginning chopped, middle full" complaint. Recap narration must read
     as flowing prose everywhere, so terse lines get merged or expanded.
+
+    v1.10: the old ≥4s gate blinded this check for fast-cut drama, where
+    segments are 2-3s and caption scraps survive untouched. For short
+    windows a line is terse when it speaks under ~3.2s AND fills under
+    75% of its window — a full line that uses its whole short window
+    is fine, a scrap is not.
     """
     text = (text or "").strip()
-    if not text or window < 4.0:
+    if not text or window <= 0:
         return False
     est = estimate_speech_seconds(text, lang)
-    return est < 3.2 or est < window * 0.5
+    if window >= 4.0:
+        return est < 3.2 or est < window * 0.5
+    return est < 3.2 and est < window * 0.75
 
 
 def plan_chunks(duration: float, max_seconds: int | None = None,
@@ -614,6 +622,7 @@ RECAP VOICE — NON-NEGOTIABLE (မြန်မာ):
 - ပြည့်ပြည့်စုံစုံ ရေးပါ: ဇာတ်ဝင် တစ်ချက်စီမှာ ဘယ်သူက၊ ဘာလုပ်တယ်၊ ဘာကြောင့် လုပ်တယ်၊ ဘာဆက်ဖြစ်တယ် ဆိုတာ ပါအောင် ရေးပါ။ သတင်းခေါင်းစဉ် လို အချက် ၄-၅ လုံးတည်း စာရင်းချတာ မလုပ်ရ — နားထောင်သူ မြင်ကွင်းထဲ မြင်လာအောင် ပြည့်စုံတဲ့ ဝါကျ ရေးပါ။
 - Hook (hook_line1) သည် ပထမ ဝါကျကတည်းက အန္တရာယ်/ရည်မှန်းချက် (ဘယ်သူက ဘာလိုချင်တယ်၊ မရရင် ဘာဖြစ်မယ်) ကို တန်းချရမည် — "ဒီနေ့တော့ ဇာတ်လမ်းတစ်ပုဒ် ကြည့်ကြရအောင်" လို အစချီ စကား လုံးဝ မသုံးရ။
 - Caption ပုံစံ လိုင်း တိုတိုတုတ်တုတ် လုံးဝ မရေးရ: နာမည်/နေရာ/အချိန် ပြောရုံ လိုင်းမျိုး (ဥပမာ "သူဟာ လူတိုင်း။" "အဲဒီအချိန်မှာ။") တားမြစ်တယ် — အဲဒီ အချက်ကို ဘာဖြစ်တယ် ဆိုတာနဲ့ တစ်ဝါကျတည်း ပေါင်းရေးပါ။ လိုင်း တစ်ခုချင်းစီ သူ့ window ရဲ့ စာလုံး budget ရဲ့ အနည်းဆုံး ၇၀% လောက် ပြည့်အောင် ရေးပါ။ အထူးသဖြင့် ဇာတ်လမ်း အစပိုင်း လိုင်းတွေ — အစကို ခေါင်းစဉ်/မြင်ကွင်း ဖတ်သလို တိုတိုချည်း မရေးဘဲ အလယ်ပိုင်းနဲ့ အရည်အသွေး တစ်ပြေးညီ ပြည့်ပြည့်စုံစုံ ရေးပါ။
+- ဥပမာ (မရေးရ → ရေးရမည်): "အာဖူက ဘဲကင်ဆိုင်သို့။" → "အာဖူက ဘဲကင်ဆိုင်ကို သွားပြီး ဘဲကင်တစ်ကောင် ဝယ်လိုက်တယ်။" / "အာဖူမျက်လုံးများ။" → "အာဖူက သူ့မျက်လုံးတွေကို ရေနဲ့ ဆေးကြောလိုက်တယ်။" — မူရင်း စာတန်းကို စကားလုံး အတိုင်း လိုက်မပြန်ဘဲ အဖြစ်အပျက်ကို ကိုယ်ပိုင် စကားနဲ့ ဝါကျအပြည့် ပြန်ပြောပါ။
 - အပိုင်းအစတွေ မခွဲပါနဲ့: ဆက်စပ်တဲ့ အချက်တွေကို တစ်လိုင်းထဲ သဘာဝကျအောင် ပေါင်းပြောပါ။ ၅-၁၀ စက္ကန့်စာ ဇာတ်ဝင် တစ်ချက် = လိုင်း တစ်လိုင်း ကို ပိုနှစ်သက်ပါ — ၂-၃ စက္ကန့် တိုတို အစအနတွေ အများကြီး မလုပ်ရ။
 - လိုင်းတိုင်းသည် အဲဒီ အချိန် screen ပေါ်မှာ တကယ် မြင်နေရတဲ့ အရာ (ဘယ်သူ၊ ဘာလုပ်နေတယ်၊ ဘယ်နေရာ၊ မျက်နှာ အမူအရာ) ကိုပဲ ကွက်တိ ပြောရမည်။ မမြင်ရတာ၊ မသေချာတာ မထည့်ရ။
 - တားမြစ် generic စကားများ (လုံးဝ မသုံးရ): "ဇာတ်လမ်း စတင်ပါပြီ", "ဒီဇာတ်လမ်းမှာ", "အခုဆိုရင်", "ဆက်လက် စောင့်ကြည့်ရအောင်", "ဘာတွေ ဖြစ်လာမလဲ", "သူတို့ စကားပြောနေကြပါတယ်" (ဘာအကြောင်း ပြောနေတယ်ဆိုတာ မပါဘဲ), "အံ့ဩစရာ ကောင်းပါတယ်" (အကြောင်းရင်း မပါဘဲ)။
@@ -855,6 +864,12 @@ _MY_FRAGMENT_SUFFIXES = (
     "တော့", "ဖို့", "ကို", "မှာ", "ထဲ", "ပေါ်", "နဲ့", "ပြီး", "လို့", "မို့",
     "ရင်", "တဲ့", "တာ", "ဘဲ", "ပဲ", "လွန်း", "အောင်", "ထိ", "၍", "သော",
     "သည့်", "မည့်", "စွာ", "ချင်း", "ရင်း",
+    # v1.10: verb-less endings that used to pass as "complete" — a line
+    # ending on one of these has no predicate, however it is punctuated:
+    # direction without a verb ("ဆိုင်သို့။"), a dangling conjunction
+    # ("ယောက်ျားလေးနှင့်။"), a bare noun phrase ("မျက်လုံးများ။"),
+    # or a subordinate participle ("ထိုင်ကာ။", "လုပ်လျက်။").
+    "သို့", "နှင့်", "များ", "ကာ", "လျက်",
 )
 
 
