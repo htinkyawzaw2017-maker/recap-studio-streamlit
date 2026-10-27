@@ -474,6 +474,29 @@ _noname = [
 ok(len(TimelineExtractor(fill_mode="dialogue")._merge_fragments(
     [dict(d) for d in _noname])) == 2, "unknown-speaker dubbing turns stay separate")
 
+# ── v1.17: long silences surface in the report + clean timestamps ───
+_cov_lines = [
+    {"start": 0.001, "end": 0.961, "speaker": "Woman", "text": "တကယ်ကို။"},
+    {"start": 3.033, "end": 9.093, "speaker": "Man 1", "text": "အာဖူ၊ လူသက်တမ်းကြည့်တိုင်း။"},
+    {"start": 9.693, "end": 13.993, "speaker": "Man 2", "text": "ကျွန်တော် မသိပါဘူး။"},
+    {"start": 15.063, "end": 22.023, "speaker": "Man 2", "text": "နောက်ပိုင်း လူကြည့်တိုင်း။"},
+    {"start": 27.273, "end": 31.063, "speaker": "Man 1", "text": "သက်တမ်းဆိုတာမျိုးက။"},
+    {"start": 32.193, "end": 35.593, "speaker": "Man 1", "text": "အာဖူ မင်းဒီလိုလုပ်တာက။"},
+    {"start": 37.493, "end": 42.433, "speaker": "Man 2", "text": "ကျွန်တော် ဒါတွေကို။"},
+    {"start": 107.153, "end": 110.403, "speaker": "Bull Head", "text": "အာဖူ မင်းက။"},
+    {"start": 114.283, "end": 117.653, "speaker": "Bull Head", "text": "ကံကြမ္မာကို။"},
+    {"start": 124.083, "end": 126.063, "speaker": "Man 1", "text": "အာဖူ မင်းဒုက္ခရောက်ပြီ။"},
+    {"start": 144.383, "end": 145.023, "speaker": "Man 2", "text": "ဟယ်!"},
+    {"start": 146.333, "end": 180.08, "speaker": "Man 2", "text": "ဟာ ဒုက္ခပဲ။"},
+]
+_rep = TimelineExtractor()._coverage(_cov_lines, 180.08, 0)
+ok(_rep["quiet_gaps"] == [{"start": 42.43, "end": 107.15, "seconds": 64.72}],
+   "65s dubbing hole surfaces in coverage report (18s hole stays silent)")
+_float = normalise([{"start": 147.65300000000002, "end": 154.13766040000002,
+                     "speaker": "Man 2", "text": "စကားပြောရအောင်။"}], 180.08)
+ok(_float[0]["start"] == 147.65 and _float[0]["end"] == 154.14,
+   "computed timestamps round to 0.01s")
+
 # ── v1.11: project persistence — refresh must not reset to step 1 ─────
 import tempfile as _tf
 from pathlib import Path as _Pl

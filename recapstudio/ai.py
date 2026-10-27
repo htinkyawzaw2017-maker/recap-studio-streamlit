@@ -150,6 +150,7 @@ class CoverageReport:
     longest_gap: float = 0.0
     chunks: int = 0
     per_chunk: list[dict] = None  # type: ignore[assignment]
+    quiet_gaps: list = None  # type: ignore[assignment]
 
     def as_dict(self) -> dict:
         pct = (self.spoken_seconds / self.total_seconds * 100.0) if self.total_seconds else 0.0
@@ -162,6 +163,7 @@ class CoverageReport:
             "longest_gap_seconds": round(self.longest_gap, 2),
             "chunks": self.chunks,
             "per_chunk": self.per_chunk or [],
+            "quiet_gaps": self.quiet_gaps or [],
         }
 
 
@@ -829,6 +831,9 @@ def normalise(dialogues: Iterable[dict], duration: float) -> list[dict]:
         try:
             st = max(0.0, min(float(item.get("start", 0)), duration))
             en = max(0.0, min(float(item.get("end", st + 2.0)), duration))
+            # v1.17: round to 0.01s — computed timestamps like
+            # 147.65300000000002 are unreadable in the editor and pastes.
+            st, en = round(st, 2), round(en, 2)
         except (TypeError, ValueError):
             continue
         text = re.sub(r"\s+", " ", str(item.get("text", ""))).strip()
@@ -1766,10 +1771,17 @@ Rules:
     def _coverage(self, dialogues: list[dict], duration: float, filled: int,
                   per_chunk: list[dict] | None = None, longest: float = 0.0) -> dict:
         spoken = sum(max(0.0, d["end"] - d["start"]) for d in dialogues)
+        # v1.17: surface long silences in the report, not just the log —
+        # a 65s hole in a dialogue episode usually means the model skipped
+        # speech (or the section is action-only); the user must SEE it to
+        # judge. 20s matches the recap re-analysis threshold.
+        quiet = [{"start": round(g["start"], 2), "end": round(g["end"], 2),
+                  "seconds": round(g["end"] - g["start"], 2)}
+                 for g in find_gaps(dialogues, duration, 20.0)]
         report = CoverageReport(
             total_seconds=duration, spoken_seconds=spoken, lines=len(dialogues),
             gaps_filled=filled, longest_gap=longest, chunks=len(per_chunk or []),
-            per_chunk=per_chunk or [],
+            per_chunk=per_chunk or [], quiet_gaps=quiet,
         )
         return report.as_dict()
 

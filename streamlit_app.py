@@ -679,6 +679,12 @@ else:
     if SS["coverage"]:
         st.caption(f"📊 Coverage: {SS['coverage'].get('coverage_percent', '—')}% • "
                    f"လိုင်း {SS['coverage'].get('lines', len(SS['dialogues']))} လိုင်း")
+        if SS["coverage"].get("quiet_gaps"):
+            _gaps = " • ".join(
+                f"{g['start']:.0f}–{g['end']:.0f}s ({g['seconds']:.0f}s)"
+                for g in SS["coverage"]["quiet_gaps"])
+            st.caption(f"⚠️ အသံမရှိတဲ့ ကွာဟချက်: {_gaps} — မူရင်းမှာ ဒီကြားစကားပြောနေရင် "
+                       f"အဲဒီအပိုင်းကို ပြန်စစ်ပါ (တိတ်ဆိတ်တာမှန်ရင် ထားလို့ရပါတယ်)")
     if SS.get("fit") and (SS["fit"].get("fixed_ai") or SS["fit"].get("fixed_cut")):
         st.caption(f"✂️ မိနစ်ကိုက် ကွက်တိ: လိုင်း {SS['fit'].get('fixed_ai', 0) + SS['fit'].get('fixed_cut', 0)} ကြောင်းကို "
                    f"သူ့အခန်း အတွင်း ဝင်အောင် ချုံ့ပြီးပါပြီ (ရှည်လွန်းရင် အသံ နောက်ကျပြီး ရုပ်နဲ့ လွဲတတ်လို့ပါ)")
@@ -950,6 +956,6 @@ if SS["outputs"]:
         st.markdown(f'<span class="warnline">⚠️ {_w}</span>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="footer">Recap Studio MM — Free Edition (Streamlit) • app v1.16 • '
+st.markdown('<div class="footer">Recap Studio MM — Free Edition (Streamlit) • app v1.17 • '
             'အခြေခံ engine: Recap Studio MM Pro v4.4 • Gemini Free + Edge TTS + FFmpeg</div>',
             unsafe_allow_html=True)
