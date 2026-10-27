@@ -557,6 +557,30 @@ ok(_ech[0]["text"] == "ဒါက။" and _exe.repair_unfixed == 1,
 ok(_ex.repair_unfixed == 0,
    "repair unfixed count is 0 when the completion succeeds")
 
+# ── v1.21: repeated passages inside one scene are dropped ──────────
+_dup_in = [
+    {"start": 70.63, "end": 75.63, "speaker": "Woman",
+     "text": "အာဖူ၊ မင်းဒီလိုဖြစ်လာတာတွေ့ရတော့ အဘွားပျော်တယ်။ ဒီကြက်က အဘွားလက်ဆောင်ပေးတာပါ။"},
+    {"start": 76.63, "end": 82.63, "speaker": "Man",
+     "text": "မဟုတ်ဘူး၊ မဟုတ်ဘူး။ အာဖူက အခုလယ်လုပ်နိုင်ပြီ။ ပိုက်ဆံလည်းရှိနေပြီ။ အဘွားယူကိုယူရမယ်။"},
+    {"start": 111.43, "end": 116.23, "speaker": "အဘွားကြီး",
+     "text": "အာဖူ၊ မင်းဒီလိုဖြစ်နေတာ မြင်ရတော့ အဘွားပျော်တယ်။ ဒီကြက်က အဘွားလက်ဆောင်ပေးတာပါ။"},
+    {"start": 118.93, "end": 123.03, "speaker": "အာဖူ",
+     "text": "အာဖူ အခု လယ်လုပ်နိုင်ပြီ။ ပိုက်ဆံလည်း ရှိနေပြီ။ အဘွား ဒါကို လက်ခံရမှာပါ။"},
+    {"start": 130.0, "end": 131.0, "speaker": "Man", "text": "ဟားဟားဟား။"},
+    {"start": 132.0, "end": 133.0, "speaker": "Man", "text": "ဟားဟားဟား။"},
+    {"start": 140.0, "end": 143.0, "speaker": "Man", "text": "နယ်မြေကို ကာကွယ်မယ်။"},
+    {"start": 144.0, "end": 147.0, "speaker": "Man", "text": "နယ်မြေကို ကာကွယ်မယ်။"},
+    {"start": 300.0, "end": 305.0, "speaker": "Woman",
+     "text": "အာဖူ၊ မင်းဒီလိုဖြစ်လာတာတွေ့ရတော့ အဘွားပျော်တယ်။ ဒီကြက်က အဘွားလက်ဆောင်ပေးတာပါ။"},
+]
+_dup = TimelineExtractor()._dedup_repeats(_dup_in)
+ok(len(_dup) == 7 and _dup[0]["speaker"] == "Woman"
+   and _dup[-1]["start"] == 300.0
+   and sum(1 for d in _dup if d["text"] == "ဟားဟားဟား။") == 2
+   and sum(1 for d in _dup if "နယ်မြေကို ကာကွယ်မယ်" in d["text"]) == 2,
+   "near-duplicate long lines in one passage dropped, short chants and far repeats kept")
+
 # ── v1.11: project persistence — refresh must not reset to step 1 ─────
 import tempfile as _tf
 from pathlib import Path as _Pl

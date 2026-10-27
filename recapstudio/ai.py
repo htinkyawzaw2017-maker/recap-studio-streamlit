@@ -1159,6 +1159,9 @@ class TimelineExtractor:
         #    speaker only) + repair dangling lines in place ────────────
         dialogues = self._merge_fragments(dialogues)
         dialogues = self._repair_fragments(dialogues)
+        # v1.21: drop repeated passages — the model re-emits the same
+        # exchange twice inside one passage with different speaker labels
+        dialogues = self._dedup_repeats(dialogues)
         # ── per-minute exact fit: no line may overrun its scene/minute ──
         dialogues, fit_report = self._enforce_minute_fit(dialogues, duration)
         report = self._coverage(dialogues, duration, filled, per_chunk, longest)
@@ -1572,6 +1575,50 @@ class TimelineExtractor:
         if merged:
             self.log(f"🧩 Fragment merge: အပိုင်းအစ {merged} ခု ကို ဝါကျ အပြည့် လိုင်းများ အဖြစ် ပြန်ပေါင်းပြီးပါပြီ")
         return out
+
+    def _dedup_repeats(self, dialogues: list[dict]) -> list[dict]:
+        """Drop long lines that repeat an earlier line almost verbatim.
+
+        The model sometimes re-emits the same exchange twice inside one
+        passage (e.g. the chicken-gift scene at ~70s and again at ~111s,
+        with different speaker labels). A long line (>=20 chars) is a
+        duplication if, against an earlier line within 180s, either its
+        overall similarity is >=85% or the two share one contiguous
+        block of >=25 chars (the refusal pair scores only 0.745 overall
+        because the model dropped its prefix and reworded its ending,
+        yet its whole core clause repeats verbatim). Short repeats
+        (laughter, chants, name calls) are left alone, and so are
+        repeats far apart. Residual risk, stated plainly: two genuinely
+        different speeches sharing a >=25-char opening inside 180s can
+        be mistaken for a repeat — the editor can restore such a line.
+        """
+        import difflib
+
+        def _norm(text: str) -> str:
+            return re.sub(r"[\s။.!?,\"“”]+", "", str(text))
+
+        kept: list[dict] = []
+        dropped = 0
+        for d in dialogues:
+            norm = _norm(d.get("text", ""))
+            dup = False
+            if len(norm) >= 20:
+                for k in kept:
+                    if abs(float(d.get("start", 0.0)) - float(k.get("start", 0.0))) > 180.0:
+                        continue
+                    matcher = difflib.SequenceMatcher(None, _norm(k.get("text", "")), norm)
+                    longest = max((b.size for b in matcher.get_matching_blocks()), default=0)
+                    if matcher.ratio() >= 0.85 or longest >= 25:
+                        dup = True
+                        break
+            if dup:
+                dropped += 1
+            else:
+                kept.append(d)
+        if dropped:
+            self.log(f"🧹 Repeat dedup: စာတပိုဒ်ထဲ ထပ်နေတဲ့ လိုင်း {dropped} လိုင်း "
+                     f"ဖျက်ပြီးပါပြီ")
+        return kept
 
     def _repair_fragments(self, dialogues: list[dict]) -> list[dict]:
         """AI-rewrite lines that are STILL fragments — or terse scraps.
