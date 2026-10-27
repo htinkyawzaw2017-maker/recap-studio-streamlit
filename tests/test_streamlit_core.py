@@ -327,6 +327,43 @@ ok(len(_mt) == 2 and _mt[0]["text"].count("။") == 1
    and _mt[0]["end"] == 13.0 and "သူဟာ ကလေးနှစ်ယောက်" in _mt[0]["text"],
    "titanic fragments merge into one flowing sentence")
 
+# ── v1.13: dubbing lines get completed, not left dangling ───────────
+for _frag in ("အဘွားကြီးရဲ့။", "သူ၏။",
+              "ဒီနှစ်မှာတော့ ကျွန်တော် အသက်နှစ်ဆယ်...။"):
+    ok(not sentence_complete(_frag, "my"), f"fragment detected: {_frag[:18]}…")
+ok(sentence_complete("ဒါဆို... ယန်ဝမ်ရဲ့ မျက်လုံးလား။", "my"),
+   "mid-line ellipsis with finished ending stays complete")
+ok(sentence_complete("အဘွားကြီးရဲ့ အိမ်ကို သွားပါတယ်။", "my"),
+   "possessive mid-sentence stays complete")
+# merge stays recap-only: dubbing turns keep their own windows
+_dub = [
+    {"start": 21.8, "end": 25.7, "speaker": "Jigong",
+     "text": "ဒါကြောင့် ကျွန်တော်ကတော့ ပျင်းရိတဲ့သူတွေကို။"},
+    {"start": 27.2, "end": 28.1, "speaker": "Jigong", "text": "ဖိနပ်က ပြဲနေပြီ။"},
+]
+ok(len(TimelineExtractor(fill_mode="dialogue")._merge_fragments(
+    [dict(d) for d in _dub])) == 2, "dubbing merge stays off (windows kept)")
+
+
+class _FakeDubClient:
+    def generate_json(self, model, parts, schema, **kw):
+        return _json.dumps({"lines": [{"index": 0,
+            "text": "ဒါပေမဲ့ ဆရာတော်ပြောတဲ့ မျက်စိကွယ်တယ်ဆိုတာက အမှန်ပါ။"}]})
+
+
+_exd = TimelineExtractor(fill_mode="dialogue")
+_exd.client = _FakeDubClient()
+_repd = _exd._repair_fragments([
+    {"start": 17.5, "end": 21.4, "speaker": "Jigong",
+     "text": "ဒါပေမဲ့ ဆရာတော်ပြောတဲ့ မျက်စိကွယ်တယ်ဆိုတာ။"},
+    {"start": 59.4, "end": 60.9, "speaker": "Old Woman",
+     "text": "ရဟန်းက အသားစားလို့ရလို့လား။"},
+])
+ok("အမှန်ပါ" in _repd[0]["text"],
+   "dubbing repair completes a dangling turn in its own window")
+ok(_repd[1]["text"] == "ရဟန်းက အသားစားလို့ရလို့လား။",
+   "complete dubbing turn untouched by repair")
+
 # ── v1.11: project persistence — refresh must not reset to step 1 ─────
 import tempfile as _tf
 from pathlib import Path as _Pl

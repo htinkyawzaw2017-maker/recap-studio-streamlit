@@ -634,7 +634,10 @@ RECAP VOICE — NON-NEGOTIABLE (မြန်မာ):
         voice_block = '''
 DUBBING VOICE — NON-NEGOTIABLE (မြန်မာ):
 - မူရင်း အဓိပ္ပာယ်ကို လူပြော မြန်မာစကား စစ်စစ်နဲ့ ပြန်ပါ — တိုက်ရိုက် ဘာသာပြန် (translationese) လုံးဝ မဖြစ်ရ။ မြန်မာတွေ တကယ် ပြောတဲ့ ပုံစံ၊ သဒ္ဒါ အစီအစဉ် မှန်မှန်။
-- ပြောသူရဲ့ စိတ်ခံစားမှု၊ အသံအနိမ့်အမြင့်၊ ရင်းနှီးမှု အဆင့် (ခင်မင်တဲ့ ပုံစံ/ရိုသေတဲ့ ပုံစံ) ကို ထိန်းထားပါ။'''
+- ပြောသူရဲ့ စိတ်ခံစားမှု၊ အသံအနိမ့်အမြင့်၊ ရင်းနှီးမှု အဆင့် (ခင်မင်တဲ့ ပုံစံ/ရိုသေတဲ့ ပုံစံ) ကို ထိန်းထားပါ။
+- လိုင်းတိုင်းသည် သီးခြား ဖတ်ကြည့်ရင် ဝါကျအပြည့် ဖြစ်ရမည် — ကြိယာ အပြည့်အစုံ (ပါတယ်/တယ်/သည်/ခဲ့/ပြီ/လား) နဲ့ ဆုံးရမည်။ ပြောသူက အတွေးကို နောက်အလှည့်မှာ ဆက်ပြောရင်တောင် ဒီလိုင်းကို အဲဒီ context နဲ့ သဘာဝကျကျ အပြည့်အစုံ ဖြစ်အောင် ပြန်ရေးပါ — ဖြတ်ထားတဲ့နေရာအတိုင်း "။" ချပြီး မထားရ။
+- လုံးဝ မဆုံးရ: ကို/မှာ/တာ/ရဲ့/၏/ဆိုတာ/တော့/လည်း/ဖြစ် (တစ်လုံးတည်း) စတဲ့ အပိုင်းအစ အဆုံးသတ်တွေ။ ဥပမာ "…သူတွေကို။" "…ဆိုတာ။" "…အဘွားကြီးရဲ့။" ဆိုတဲ့ လိုင်းမျိုး လုံးဝ မရေးရ။
+- "…" / "..." နဲ့ လုံးဝ မဆုံးရ — ဖြတ်ထားတဲ့ စကားကို ဝါကျအပြည့် ဖြစ်အောင် ပြန်ပါ။'''
     elif selected_mode == "continuous":
         voice_block = '''
 RECAP VOICE — NON-NEGOTIABLE:
@@ -875,6 +878,9 @@ _MY_FRAGMENT_SUFFIXES = (
     # one broke whole merge chains, because the merge only continues
     # through lines it recognises as fragments.
     "ဟာ", "လည်း",
+    # v1.13: a dangling possessive ("အဘွားကြီးရဲ့။", "သူ၏။") has no
+    # predicate either — dubbing turns end on these constantly.
+    "ရဲ့", "၏",
 )
 
 
@@ -902,6 +908,11 @@ def sentence_complete(text: str, lang: str = "my") -> bool:
         for suffix in _MY_FRAGMENT_SUFFIXES:
             if last.endswith(suffix):
                 return False
+        # v1.13: a line trailing off on "…" / "..." was cut mid-thought
+        # ("အသက်နှစ်ဆယ်...။") — never a finished sentence, even
+        # though the old fallback accepted a trailing "…".
+        if t.rstrip("။").endswith(("...", "…")):
+            return False
         # subject marker "…က" (noun + က) with a vowel sign before it
         if last.endswith("က") and len(last) >= 2 and last[-2] in "ာိီုူေဲဳံး့":
             return False
@@ -1028,7 +1039,8 @@ class TimelineExtractor:
 
         # ── coverage sweep ────────────────────────────────────────────
         dialogues, filled, longest = self._coverage_sweep(dialogues, duration, video_path)
-        # ── join chopped fragments into complete lines (recap only) ────
+        # ── merge chopped fragments (recap only) + repair dangling lines
+        #    in place (recap + dubbing; dubbing keeps its own windows) ─
         dialogues = self._merge_fragments(dialogues)
         dialogues = self._repair_fragments(dialogues)
         # ── per-minute exact fit: no line may overrun its scene/minute ──
@@ -1416,10 +1428,12 @@ class TimelineExtractor:
         same facts, finished verb, filled out to its window. Acceptance is
         judged against the line's WINDOW budget (not its old length: the
         old 1.45×-of-old-length cap rejected exactly the expansions the
-        shortest lines needed). Recap mode only; without a client the
-        lines are left as-is.
+        shortest lines needed). Recap and dubbing: merging stays
+        recap-only (dubbing turns must keep their own speech windows),
+        but repair completes dangling dubbing lines in place. Without a
+        client the lines are left as-is.
         """
-        if self.fill_mode != "continuous" or self.client is None:
+        if self.fill_mode not in ("continuous", "dialogue") or self.client is None:
             return dialogues
         from .tts import chars_per_second
         cps = chars_per_second(self.lang)
@@ -1450,11 +1464,15 @@ class TimelineExtractor:
             f"  [context before: \"{b['before']}\" / after: \"{b['after']}\"]"
             for b in batch)
         lang_word = "Burmese" if self.lang == "my" else "English"
-        prompt = f"""These {lang_word} recap lines are BROKEN in one of two ways — each one either stops mid-thought
+        kind = "recap" if self.fill_mode == "continuous" else "dubbing"
+        mode_note = (" Each line is one speaker's turn in a dubbing script: keep it inside its own "
+                     "speech window and complete it only from the neighbouring turns' content — "
+                     "never move words between turns." if kind == "dubbing" else "")
+        prompt = f"""These {lang_word} {kind} lines are BROKEN in one of two ways — each one either stops mid-thought
 (a fragment ending on a subordinate clause or particle instead of a finished verb), or it is a
 terse caption-style scrap that only names a person/place/time and says nothing ("သူဟာ လူတိုင်း။").
 A narrator cannot read either kind naturally, and they stand out against the full lines around them.
-
+{mode_note}
 {listing}
 
 Rewrite EACH line into ONE complete, full, natural, flowing sentence:
