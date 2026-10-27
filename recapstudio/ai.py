@@ -676,6 +676,8 @@ DUBBING VOICE — NON-NEGOTIABLE:
 - Translate EXACTLY what is spoken — one original turn = one translated entry, in speech order.
   Do not summarize, retell, merge turns, or leave a turn half-translated; keep names, intent and
   emotion, do not omit important information or add plot explanation.
+- Label `speaker` with the character's name or role when identifiable — never the generic word
+  'Speaker' for every entry.
 - NEVER give two entries the same start time, and NEVER use the clip end or the full-video
   duration as a timestamp — stamp each entry from its own audible onset/offset. If a boundary
   is uncertain, order the entries by speech and space them inside the clip; a pile of entries
@@ -793,8 +795,37 @@ def demo_timeline(duration: float, lang: str = "my") -> dict:
 
 # ── merging / coverage ───────────────────────────────────────────────────
 def normalise(dialogues: Iterable[dict], duration: float) -> list[dict]:
+    ordered = sorted(dialogues, key=lambda d: float(d.get("start", 0)))
+    # v1.15: detect physically impossible timestamps and rescale them.
+    # A model sometimes writes seconds/100 (0.47 for 47s) or 0-1
+    # fractions; the old code trusted them, so every line looked 30-50x
+    # too long for its 0.02s window and minute-fit amputated every line
+    # mid-word ("တိုက်တန်းနစ်" -> "တိုက်တန်းနစ။"). Rescaling triggers
+    # ONLY when the text physically cannot fit the stamped span (total
+    # speech time > 2x the span) on a video longer than 10s, so genuine
+    # fast dialogue is never touched.
+    if duration > 10 and len(ordered) >= 3:
+        try:
+            starts = [float(d.get("start", 0)) for d in ordered]
+            max_start = max(starts)
+            span = max_start - min(starts)
+            total_est = sum(estimate_speech_seconds(str(d.get("text", "")))
+                            for d in ordered)
+            factor = 0.0
+            if span > 0 and total_est > span * 2:
+                if 0 < max_start and max_start * 100 <= duration * 1.1:
+                    factor = 100.0
+                elif max_start <= 1.05:
+                    factor = float(duration)
+            if factor:
+                ordered = [dict(d,
+                                start=float(d.get("start", 0)) * factor,
+                                end=float(d.get("end", 0)) * factor)
+                           for d in ordered]
+        except (TypeError, ValueError):
+            pass
     cleaned: list[dict] = []
-    for item in sorted(dialogues, key=lambda d: float(d.get("start", 0))):
+    for item in ordered:
         try:
             st = max(0.0, min(float(item.get("start", 0)), duration))
             en = max(0.0, min(float(item.get("end", st + 2.0)), duration))
@@ -1597,6 +1628,12 @@ Rewrite EACH line into ONE complete, full, natural, flowing sentence:
 
         targets: dict[int, int] = {}
         for pos, d in enumerate(lines):
+            # v1.15: a sub-second window is a timestamp error, not a wordy
+            # line — cutting text to fit it only amputates words mid-
+            # syllable, so leave such lines alone (retime/the editor
+            # handle them) instead of butchering them.
+            if window(d) < 0.8:
+                continue
             est = estimate_speech_seconds(str(d.get("text", "")), self.lang)
             # 25% slack: retime slows the picture to meet the voice, so only
             # genuine overruns are touched — rewriting healthy lines just to
@@ -1618,6 +1655,8 @@ Rewrite EACH line into ONE complete, full, natural, flowing sentence:
             for pos in by_size:
                 if total <= block_len * 1.10:
                     break
+                if window(lines[pos]) < 0.8:
+                    continue
                 est = estimate_speech_seconds(str(lines[pos].get("text", "")), self.lang)
                 goal = max(10, int(len(str(lines[pos].get("text", ""))) * 0.85))
                 if pos in targets:

@@ -395,6 +395,56 @@ _so = normalise(_one, 180.070312)
 ok(_so[1]["start"] < 180.070312 and _so[1]["end"] == 180.070312,
    "line stamped at duration is pulled back inside")
 
+# ── v1.15: 100x-compressed timestamps are rescaled, never trusted ───
+# the owner's Titanic paste: model wrote seconds/100 (0.47 for 47s) and
+# minute-fit then amputated every line mid-word to a ~10-char budget
+_compressed = [
+    {"start": 0.0, "end": 0.02, "speaker": "Speaker", "text": "သူက သူ့သားတို့။"},
+    {"start": 0.02, "end": 0.04, "speaker": "Speaker", "text": "တိုက်တန်းနစ်သင်္ဘောကြီး။"},
+    {"start": 0.05, "end": 0.06, "speaker": "Speaker", "text": "သူတို့နဲ့ လိုက်မသွားဘူး။"},
+    {"start": 0.43, "end": 0.45, "speaker": "Speaker", "text": "သူမ အတ္တလန္တိတ်ကို ဖြတ်ခဲ့တယ်။"},
+    {"start": 0.45, "end": 0.47, "speaker": "Speaker", "text": "သားတွေနဲ့ အတူနေခဲ့တယ်။"},
+]
+_sc = normalise(_compressed, 47.07)
+ok([round(d["start"], 2) for d in _sc] == [0.0, 2.0, 5.0, 43.0, 45.0]
+   and round(_sc[-1]["end"], 2) == 47.0
+   and "တိုက်တန်းနစ်သင်္ဘောကြီး" in _sc[1]["text"],
+   "seconds/100 timestamps rescaled x100, text kept whole")
+# 0-1 fractions rescale by duration instead
+_frac = [
+    {"start": 0.0, "end": 0.1, "speaker": "", "text": "သူဟာ ရွာထဲက လူကြီး တစ်ဦး ဖြစ်ပါတယ်။"},
+    {"start": 0.25, "end": 0.35, "speaker": "", "text": "တစ်နေ့မှာတော့ မုန်တိုင်းကြီး တိုက်လာခဲ့ပါတယ်။"},
+    {"start": 0.5, "end": 0.6, "speaker": "", "text": "သူတို့ရဲ့ အိမ်လေး ပျက်စီးသွားခဲ့ပါတယ်။"},
+    {"start": 1.0, "end": 1.1, "speaker": "", "text": "နောက်ဆုံးမှာတော့ အားလုံး ပြန်လည်ထူထောင်ခဲ့ပါတယ်။"},
+]
+_sf = normalise(_frac, 47.0)
+ok(round(_sf[1]["start"], 2) == 11.75 and _sf[-1]["end"] == 47.0
+   and all(_sf[k]["start"] < _sf[k + 1]["start"] for k in range(3)),
+   "0-1 fraction timestamps rescaled by duration")
+# sane timestamps and short videos are never touched
+_sane = [
+    {"start": 0.0, "end": 3.9, "speaker": "", "text": "တိုက်တန်းနစ်သင်္ဘောကြီး နစ်မြုပ်နေချိန်မှာ။"},
+    {"start": 4.0, "end": 6.7, "speaker": "", "text": "ဒါပေမဲ့ သူကိုယ်တိုင်ကတော့။"},
+    {"start": 7.0, "end": 9.2, "speaker": "", "text": "အဲဒီနောက်မှာတော့ သူဟာ။"},
+]
+_ss = normalise(_sane, 47.07)
+ok([d["start"] for d in _ss] == [0.0, 4.0, 7.0], "sane timestamps untouched")
+_short = [
+    {"start": 0.0, "end": 0.02, "speaker": "", "text": "စာတစ်ကြောင်း။"},
+    {"start": 0.02, "end": 0.04, "speaker": "", "text": "စာနှစ်ကြောင်း။"},
+    {"start": 0.05, "end": 0.06, "speaker": "", "text": "စာသုံးကြောင်း။"},
+]
+_sh = normalise(_short, 5.0)
+ok([d["start"] for d in _sh] == [0.0, 0.02, 0.05], "short video guard: no rescale")
+# minute-fit never butchers a sub-second window line
+_exf = TimelineExtractor()
+_fit, _rep = _exf._enforce_minute_fit(
+    [{"start": 0.0, "end": 0.4, "speaker": "",
+      "text": "သူဟာ ရွာထဲက လူတိုင်း လေးစားရတဲ့ လူကြီး တစ်ဦး ဖြစ်ပါတယ်။"}],
+    60.0)
+ok(_fit[0]["text"] == "သူဟာ ရွာထဲက လူတိုင်း လေးစားရတဲ့ လူကြီး တစ်ဦး ဖြစ်ပါတယ်။",
+   "sub-second window line left whole by minute-fit")
+
 # ── v1.11: project persistence — refresh must not reset to step 1 ─────
 import tempfile as _tf
 from pathlib import Path as _Pl

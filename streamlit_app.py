@@ -950,6 +950,6 @@ if SS["outputs"]:
         st.markdown(f'<span class="warnline">⚠️ {_w}</span>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="footer">Recap Studio MM — Free Edition (Streamlit) • app v1.14 • '
+st.markdown('<div class="footer">Recap Studio MM — Free Edition (Streamlit) • app v1.15 • '
             'အခြေခံ engine: Recap Studio MM Pro v4.4 • Gemini Free + Edge TTS + FFmpeg</div>',
             unsafe_allow_html=True)
