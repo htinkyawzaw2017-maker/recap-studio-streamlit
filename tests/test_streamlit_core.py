@@ -335,14 +335,15 @@ ok(sentence_complete("ဒါဆို... ယန်ဝမ်ရဲ့ မျက�
    "mid-line ellipsis with finished ending stays complete")
 ok(sentence_complete("အဘွားကြီးရဲ့ အိမ်ကို သွားပါတယ်။", "my"),
    "possessive mid-sentence stays complete")
-# merge stays recap-only: dubbing turns keep their own windows
+# v1.16 update: dubbing merge stays off ACROSS speakers (same-speaker
+# turns now merge — see the v1.16 Narrator test below)
 _dub = [
     {"start": 21.8, "end": 25.7, "speaker": "Jigong",
      "text": "ဒါကြောင့် ကျွန်တော်ကတော့ ပျင်းရိတဲ့သူတွေကို။"},
-    {"start": 27.2, "end": 28.1, "speaker": "Jigong", "text": "ဖိနပ်က ပြဲနေပြီ။"},
+    {"start": 27.2, "end": 28.1, "speaker": "Old Woman", "text": "ဖိနပ်က ပြဲနေပြီ။"},
 ]
 ok(len(TimelineExtractor(fill_mode="dialogue")._merge_fragments(
-    [dict(d) for d in _dub])) == 2, "dubbing merge stays off (windows kept)")
+    [dict(d) for d in _dub])) == 2, "dubbing merge stays off across speakers")
 
 
 class _FakeDubClient:
@@ -444,6 +445,34 @@ _fit, _rep = _exf._enforce_minute_fit(
     60.0)
 ok(_fit[0]["text"] == "သူဟာ ရွာထဲက လူတိုင်း လေးစားရတဲ့ လူကြီး တစ်ဦး ဖြစ်ပါတယ်။",
    "sub-second window line left whole by minute-fit")
+
+# ── v1.16: dubbing same-speaker merge + Burmese "." → "။" ───────────
+from recapstudio.ai import normalise_my_punctuation
+ok(normalise_my_punctuation("ခေါ်ခဲ့. ဘယ်သူမှ မသိဘူး.") ==
+   "ခေါ်ခဲ့။ ဘယ်သူမှ မသိဘူး။", "latin periods become Burmese full stops")
+ok(normalise_my_punctuation("ဒေါ်လာ ၄.၅ သန်း။") == "ဒေါ်လာ ၄.၅ သန်း။",
+   "decimals untouched by punctuation normalisation")
+# the owner's new Narrator paste: one narrator's sentence split across
+# three turns joins back into one flowing line (no words invented)
+_narr = [
+    {"start": 2.0, "end": 4.0, "speaker": "Narrator",
+     "text": "တိုက်တန်းနစ် နစ်မြုပ်နေချိန်"},
+    {"start": 4.0, "end": 6.0, "speaker": "Narrator",
+     "text": "ဒါပေမဲ့ သူတို့နဲ့ လိုက်မယ့်အစား"},
+    {"start": 6.0, "end": 9.0, "speaker": "Narrator",
+     "text": "သူတို့ကို နှုတ်ဆက်နမ်းရှုံ့ပြီး သင်္ဘောနဲ့ နစ်မြုပ်ခဲ့တယ်"},
+]
+_mn = TimelineExtractor(fill_mode="dialogue")._merge_fragments(
+    [dict(d) for d in _narr])
+ok(len(_mn) == 1 and _mn[0]["end"] == 9.0 and "နစ်မြုပ်ခဲ့တယ်" in _mn[0]["text"],
+   "same-speaker dubbing turns merge into one sentence")
+# unknown speakers never merge in dubbing
+_noname = [
+    {"start": 0.0, "end": 2.0, "speaker": "", "text": "ဒါပေမဲ့ သူတို့နဲ့။"},
+    {"start": 2.0, "end": 4.0, "speaker": "", "text": "လိုက်မသွားဘူး။"},
+]
+ok(len(TimelineExtractor(fill_mode="dialogue")._merge_fragments(
+    [dict(d) for d in _noname])) == 2, "unknown-speaker dubbing turns stay separate")
 
 # ── v1.11: project persistence — refresh must not reset to step 1 ─────
 import tempfile as _tf

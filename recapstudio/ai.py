@@ -966,6 +966,17 @@ _MY_FRAGMENT_SUFFIXES = (
 )
 
 
+def normalise_my_punctuation(text: str) -> str:
+    """Burmese lines must end with "။", not a Latin ".".
+
+    The model mixes "." into Burmese output ("ခေါ်ခဲ့."), which reads
+    inconsistent and breaks the "။"-based flow. A "." followed by
+    whitespace or end-of-line is a sentence boundary, so it becomes
+    "။"; decimals like "၄.၅" ("." followed by a digit) are untouched.
+    """
+    return re.sub(r"\.(?=\s|$)", "။", text or "")
+
+
 def sentence_complete(text: str, lang: str = "my") -> bool:
     """Heuristic: can this line stand alone as a finished sentence?
 
@@ -1119,10 +1130,17 @@ class TimelineExtractor:
         hook1 = next((h["__hook__"].get("hook_line1", "") for h in hooks if h["__hook__"].get("hook_line1")), "")
         hook2 = next((h["__hook__"].get("hook_line2", "") for h in hooks if h["__hook__"].get("hook_line2")), "")
 
+        # v1.16: Burmese lines end with "။", never a Latin "." — the model
+        # mixes them ("ခေါ်ခဲ့."), so normalise them before merge/repair
+        # judge sentence completeness on them.
+        if self.lang == "my":
+            for d in dialogues:
+                d["text"] = normalise_my_punctuation(str(d.get("text", "")))
+
         # ── coverage sweep ────────────────────────────────────────────
         dialogues, filled, longest = self._coverage_sweep(dialogues, duration, video_path)
-        # ── merge chopped fragments (recap only) + repair dangling lines
-        #    in place (recap + dubbing; dubbing keeps its own windows) ─
+        # ── merge chopped fragments (recap: any line; dubbing: same
+        #    speaker only) + repair dangling lines in place ────────────
         dialogues = self._merge_fragments(dialogues)
         dialogues = self._repair_fragments(dialogues)
         # ── per-minute exact fit: no line may overrun its scene/minute ──
@@ -1455,17 +1473,21 @@ class TimelineExtractor:
 
         Sentence-by-sentence output (worst with narration-dense sources)
         leaves half-thoughts like "ဒါပေမဲ့ ကလေးပုံမြင်" as standalone lines —
-        wooden to hear and impossible to voice naturally. In Recap mode, a
-        line that is not a complete sentence (see :func:`sentence_complete`
-        — Burmese fragments often DO end with "။", so punctuation alone is
-        not enough), or that is merely a terse caption-style scrap (see
+        wooden to hear and impossible to voice naturally. A line that is
+        not a complete sentence (see :func:`sentence_complete` — Burmese
+        fragments often DO end with "။", so punctuation alone is not
+        enough), or that is merely a terse caption-style scrap (see
         :func:`line_is_terse`), and is immediately followed by its
         continuation is merged with it, as long as the combined line stays
-        reasonable (≤16s window, ≤35% over the naive speech estimate —
-        retime absorbs the rest). Dubbing is untouched: its lines are real
-        speaker turns.
+        reasonable (≤16s window, ≤50% over the naive speech estimate —
+        retime slows the picture to its 0.75x floor, 1.33x, and a short
+        last-frame freeze absorbs the rest). In Dubbing mode only turns
+        of the SAME
+        speaker merge (a narrator's sentence split across turns joins
+        back up; different speakers' turns never merge, so timing and
+        turn-taking stay intact).
         """
-        if self.fill_mode != "continuous":
+        if self.fill_mode not in ("continuous", "dialogue"):
             return dialogues
         out: list[dict] = []
         merged = 0
@@ -1482,14 +1504,23 @@ class TimelineExtractor:
                 # as ONE flowing sentence ("…နေချိန်မှာ ဒါပေမဲ့…")
                 # instead of three chopped sentences in one line. A
                 # merely terse (grammatically closed) line keeps its "။".
-                base = (prev_text.rstrip("။") if prev_frag and self.lang == "my"
-                        else prev_text)
+                base = (prev_text.rstrip("။.") if prev_frag else prev_text)
                 joined = f"{base} {str(d.get('text', '')).strip()}".strip()
                 window = float(d.get("end", 0.0)) - float(prev.get("start", 0.0))
-                if (prev_text and (prev_frag
-                                   or line_is_terse(prev_text, prev_window, self.lang))
+                # v1.16: in Dubbing mode only same-speaker turns merge —
+                # a narrator's sentence split across turns joins back up,
+                # but two speakers' turns never merge into one line.
+                if self.fill_mode == "dialogue":
+                    sp_prev = str(prev.get("speaker", "")).strip()
+                    sp_cur = str(d.get("speaker", "")).strip()
+                    same_speaker = bool(sp_prev) and sp_prev == sp_cur
+                else:
+                    same_speaker = True
+                if (prev_text and same_speaker
+                        and (prev_frag
+                             or line_is_terse(prev_text, prev_window, self.lang))
                         and gap <= 1.5 and 0 < window <= 16.0
-                        and estimate_speech_seconds(joined, self.lang) <= window * 1.35):
+                        and estimate_speech_seconds(joined, self.lang) <= window * 1.5):
                     prev["text"] = joined
                     prev["end"] = d.get("end", prev.get("end"))
                     merged += 1
