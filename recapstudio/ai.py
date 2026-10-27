@@ -678,6 +678,9 @@ DUBBING VOICE — NON-NEGOTIABLE:
 - Translate EXACTLY what is spoken — one original turn = one translated entry, in speech order.
   Do not summarize, retell, merge turns, or leave a turn half-translated; keep names, intent and
   emotion, do not omit important information or add plot explanation.
+- One spoken utterance = one COMPLETE translated line, start to finish. Never end a line on a
+  dangling particle (က / တဲ့ / များ / တော့ / ကို / မှာ / ကြောင့် / ဖို့) — if the speaker's
+  sentence continues, keep translating until the sentence ends with a finished verb.
 - Label `speaker` with the character's name or role when identifiable — never the generic word
   'Speaker' for every entry.
 - NEVER give two entries the same start time, and NEVER use the clip end or the full-video
@@ -968,6 +971,10 @@ _MY_FRAGMENT_SUFFIXES = (
     # v1.13: a dangling possessive ("အဘွားကြီးရဲ့။", "သူ၏။") has no
     # predicate either — dubbing turns end on these constantly.
     "ရဲ့", "၏",
+    # v1.19: a dangling "that's why" ("ဒါကြောင့်။") is a subordinate
+    # clause with no main clause — the owner's latest paste ends turns
+    # on it, and the detector's "complete" verdict broke the merge chain.
+    "ကြောင့်",
 )
 
 
@@ -1011,8 +1018,12 @@ def sentence_complete(text: str, lang: str = "my") -> bool:
         # though the old fallback accepted a trailing "…".
         if t.rstrip("။").endswith(("...", "…")):
             return False
-        # subject marker "…က" (noun + က) with a vowel sign before it
-        if last.endswith("က") and len(last) >= 2 and last[-2] in "ာိီုူေဲဳံး့":
+        # subject marker "…က" (noun + က) with a vowel sign before it.
+        # v1.19: the set was missing TALL AA (U+102B) — Burmese "ဒါ"
+        # (this) is spelled with TALL AA, not AA (U+102C), so "ဒါက။"
+        # slipped through as "complete" and neither merge nor repair ever
+        # touched it. Written as an escape so the lookalike can't recur.
+        if last.endswith("က") and len(last) >= 2 and last[-2] in "ာိီုူေဲဳံး့\u102b":
             return False
         # a bare verb root ("ကလေးပုံမြင်") is only a sentence when the
         # writer actually closed it with "။" — unpunctuated, it is a scrap
@@ -1157,7 +1168,8 @@ class TimelineExtractor:
                  f"({report['spoken_seconds']}s / {report['total_seconds']}s), "
                  f"{report['lines']} lines, {filled} gaps filled, longest gap {longest:.1f}s")
         return {"hook_line1": hook1, "hook_line2": hook2, "dialogues": dialogues,
-                "coverage": report, "fit": fit_report}
+                "coverage": report, "fit": fit_report,
+                "repair_unfixed": getattr(self, "repair_unfixed", 0)}
 
     # ── one chunk ──────────────────────────────────────────────────────
     def _analyze_chunk(self, video_path: str, start: float, end: float,
@@ -1577,6 +1589,10 @@ class TimelineExtractor:
         but repair completes dangling dubbing lines in place. Without a
         client the lines are left as-is.
         """
+        # v1.19: how many lines stayed broken, surfaced to the UI (a plain
+        # count, never the texts) — the log line alone was invisible on a
+        # successful analysis, so the app never showed it.
+        self.repair_unfixed = 0
         if self.fill_mode not in ("continuous", "dialogue") or self.client is None:
             return dialogues
         from .tts import chars_per_second
@@ -1630,7 +1646,11 @@ Rewrite EACH line into ONE complete, full, natural, flowing sentence:
    facts, names or events that are not in the line or its context.
 4. Fill the line out toward its max characters (that is its time window) without padding
    or generic filler, and keep the natural spoken style.
-5. Return STRICT JSON only: {{"lines": [{{"index": 0, "text": "..."}}]}}"""
+5. NEVER return a line unchanged. Every line in the list is broken — a line ending on
+   က / တဲ့ / များ / တော့ / ကို / မှာ / ကြောင့် / ဖို့ / ဟာ / လည်း is NOT a finished
+   sentence no matter how natural it looks, and returning it as-is is a failure.
+   Extend it to a finished verb using the context.
+6. Return STRICT JSON only: {{"lines": [{{"index": 0, "text": "..."}}]}}"""
         schema = {"type": "object", "properties": {"lines": {
             "type": "array", "items": {"type": "object", "properties": {
                 "index": {"type": "integer"}, "text": {"type": "string"}},
@@ -1644,6 +1664,7 @@ Rewrite EACH line into ONE complete, full, natural, flowing sentence:
             raise
         except Exception as exc:
             self.log(f"⚠️ fragment repair failed: {exc}")
+            self.repair_unfixed = len(batch)
             return lines
         max_chars = {b["index"]: b["max_chars"] for b in batch}
         fixed = 0
@@ -1661,6 +1682,7 @@ Rewrite EACH line into ONE complete, full, natural, flowing sentence:
                     and len(text) >= len(old) * 0.9):
                 lines[i]["text"] = text
                 fixed += 1
+        self.repair_unfixed = len(batch) - fixed
         if fixed:
             self.log(f"🪡 Fragment repair: အပိုင်းအစ {fixed} လိုင်း ကို ဝါကျ အပြည့် ပြန်ရေးပြီးပါပြီ")
         elif batch:

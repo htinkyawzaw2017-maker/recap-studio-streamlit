@@ -28,7 +28,8 @@ from pathlib import Path
 # transient (busy/logs).
 PERSIST_KEYS = (
     "video_path", "video_info", "parts", "current_path", "current_label",
-    "dialogues", "hook1", "hook2", "coverage", "fit", "script_version",
+    "dialogues", "hook1", "hook2", "coverage", "fit", "repair_unfixed",
+    "script_version",
     "script_confirmed", "edited_dialogues", "draft_dialogues", "outputs",
     "render_cfg",
 )

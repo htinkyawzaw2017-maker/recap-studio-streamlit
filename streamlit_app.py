@@ -322,7 +322,7 @@ st.markdown("""
   <h1>🎬 Recap Studio MM — Free Edition</h1>
   <p>ဘာသာစကားမရွေး ဗီဒီယို → သဘာဝကျတဲ့ 🇲🇲 မြန်မာ / 🇬🇧 English Recap —
      Gemini Free Keys အများကြီး သုံးနိုင်ပြီး၊ Script ကို အရင်ပြင်ပြီးမှ Render လုပ်ပါတယ်။</p>
-  <p style="opacity:.75">app v1.18</p>
+  <p style="opacity:.75">app v1.19</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -649,6 +649,7 @@ else:
                 SS["hook2"] = _result.get("hook_line2", "")
                 SS["coverage"] = _result.get("coverage")
                 SS["fit"] = _result.get("fit")
+                SS["repair_unfixed"] = _result.get("repair_unfixed", 0)
                 SS["edited_dialogues"] = []
                 SS["script_confirmed"] = False
                 SS["outputs"] = None
@@ -689,6 +690,9 @@ else:
     if SS.get("fit") and (SS["fit"].get("fixed_ai") or SS["fit"].get("fixed_cut")):
         st.caption(f"✂️ မိနစ်ကိုက် ကွက်တိ: လိုင်း {SS['fit'].get('fixed_ai', 0) + SS['fit'].get('fixed_cut', 0)} ကြောင်းကို "
                    f"သူ့အခန်း အတွင်း ဝင်အောင် ချုံ့ပြီးပါပြီ (ရှည်လွန်းရင် အသံ နောက်ကျပြီး ရုပ်နဲ့ လွဲတတ်လို့ပါ)")
+    if SS.get("repair_unfixed"):
+        st.caption(f"⚠️ ပြင်လို့ မရသေးတဲ့ အပိုင်းအစ လိုင်း: {SS['repair_unfixed']} လိုင်း — "
+                   f"အောက်က editor မှာ အဲဒီလိုင်းတွေကို ပြင်နိုင်ပါတယ်")
 st.markdown('</div>', unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -957,6 +961,6 @@ if SS["outputs"]:
         st.markdown(f'<span class="warnline">⚠️ {_w}</span>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="footer">Recap Studio MM — Free Edition (Streamlit) • app v1.18 • '
+st.markdown('<div class="footer">Recap Studio MM — Free Edition (Streamlit) • app v1.19 • '
             'အခြေခံ engine: Recap Studio MM Pro v4.4 • Gemini Free + Edge TTS + FFmpeg</div>',
             unsafe_allow_html=True)

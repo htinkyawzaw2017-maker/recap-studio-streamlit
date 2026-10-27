@@ -531,6 +531,32 @@ ok(len(_chain) == 12 and _crep["fixed_ai"] == 0 and _crep["fixed_cut"] == 0
    and "ဖြတ်ကျော်။" in _chain[-1]["text"],
    "owner Narrator paste composes through the full chain (18 → 12 lines)")
 
+# ── v1.19: dangling "that's why" + repair that refuses to stay broken ─
+ok(not sentence_complete("ဒါကြောင့်။", "my"), "fragment detected: ဒါကြောင့်။")
+from recapstudio.ai import _chunk_prompt
+ok("half-translated" in _chunk_prompt(0.0, 60.0, "my", "auto", "dialogue", 60.0),
+   "dubbing prompt bans half-translated turns")
+
+
+class _FakeEchoClient:
+    # returns the fragment unchanged — the old repair silently accepted
+    # the stalemate; v1.19 must count it as unfixed, visibly.
+    def generate_json(self, model, parts, schema, **kw):
+        return _json.dumps({"lines": [{"index": 0, "text": "ဒါက။"}]})
+
+
+_exe = TimelineExtractor()
+_exe.client = _FakeEchoClient()
+_ech = _exe._repair_fragments([
+    {"start": 0.0, "end": 8.0, "speaker": "", "text": "ဒါက။"},
+    {"start": 8.0, "end": 15.0, "speaker": "",
+     "text": "တစ်နေ့မှာတော့ မုန်တိုင်းကြီး တိုက်လာပြီး သူတို့ရဲ့ အိမ်လေး ပျက်စီးသွားခဲ့ပါတယ်။"},
+])
+ok(_ech[0]["text"] == "ဒါက။" and _exe.repair_unfixed == 1,
+   "unchanged repair echo counts as unfixed, not silently accepted")
+ok(_ex.repair_unfixed == 0,
+   "repair unfixed count is 0 when the completion succeeds")
+
 # ── v1.11: project persistence — refresh must not reset to step 1 ─────
 import tempfile as _tf
 from pathlib import Path as _Pl
