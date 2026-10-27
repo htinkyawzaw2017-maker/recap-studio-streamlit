@@ -4,10 +4,19 @@
 မခံနိုင်ရင် အောက်က host တွေထဲက တစ်ခုခုမှာ ဒီ image ကိုပဲ run လို့ ရတယ်။
 App က ဒီ image ထဲမှာပဲ အကုန် ပါတယ် (ffmpeg အပါ)။
 
-## Option A — Hugging Face Spaces (FREE)
+## Option A — Hugging Face Spaces (PRO REQUIRED since July 2026)
 
-- Specs (free "CPU Basic"): **2 vCPU / 16 GB RAM / 50 GB disk** — Streamlit
-  Cloud free (~1 GB RAM, shared CPU) ထက် RAM ၁၆ ဆ လောက် ပိုများ။
+⚠️ **2026 ဇူလိုင်ကတည်းက HF က policy ပြောင်းလိုက်တယ်: Gradio နဲ့ Docker
+Spaces က PRO subscription လိုတယ်** (တစ်လ $9) — free account နဲ့ Docker
+Space အသစ် ဆောက်လို့ မရတော့ဘူး။ Static Space ပဲ free ကျန်တယ်၊
+ဒါပေမဲ့ Static က HTML ပဲ serve လုပ်တာ — Streamlit/Python app လုံးဝ
+run မရဘူး။ (Free personal account ရက် ၃၀+ ကျော် တွေမှာ Gradio
+ZeroGPU Space ၂ ခု exception ရှိပေမဲ့ Gradio-only ဖြစ်လို့ ဒီ Docker
+app နဲ့ မဆိုင်ဘူး။)
+
+- PRO ရှိရင်: **CPU Basic (2 vCPU / 16 GB RAM / 50 GB disk)** hardware က
+  အပိုကြေး မရှိ၊ Streamlit Cloud free (~1 GB RAM, shared CPU) ထက်
+  RAM ၁၆ ဆ လောက် ပိုများ။
 - 48 နာရီ မသုံးရင် sleep ဖြစ်တယ်၊ ပြန်ဖွင့်ရင် ခဏ စောင့်ရတယ်။
 
 Steps:
