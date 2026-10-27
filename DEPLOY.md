@@ -56,9 +56,11 @@ Steps:
    - AMI: **Ubuntu Server 24.04 LTS** (64-bit x86)
    - Instance type: **c7i.xlarge** (4 vCPU / 8 GB)
    - Key pair: **Proceed without a key pair** (browser Connect သုံးမှာ)
-   - Network: Security group အသစ် — **SSH (22)**: My IP၊ **Custom TCP
-     8501**: My IP (ကိုယ်တစ်ယောက်တည်း သုံးမှာမို့ My IP ပဲ အလုံခြုံဆုံး;
-     အားလုံးကို ဖွင့်ချင်ရင် 0.0.0.0/0)
+   - Network: Security group အသစ် — **SSH (22)**: 0.0.0.0/0၊ **Custom TCP
+     8501**: My IP (ကိုယ်တစ်ယောက်တည်း သုံးမှာမို့ app port ကို My IP ပဲ
+     အလုံခြုံဆုံး။ ⚠️ SSH ကို My IP ပဲ ထားလို့ မရဘူး — EC2 Instance
+     Connect က AWS ရဲ့ IP ကနေ ဝင်တာမို့ My IP rule နဲ့ Connect လုပ်လို့
+     မရဘဲ "Failed to connect to your instance" error တက်တယ်။)
    - Storage: **30 GB gp3** → **Launch instance**.
 2. Instance ကို ရွေး → **Connect** → **EC2 Instance Connect** →
    **Connect** (browser ထဲမှာ terminal ပွင့်လာမယ် — SSH key မလို).
@@ -83,9 +85,25 @@ compute ဖိုး မကျဘူး (disk ဖိုး နည်းနည်
 Elastic IP က အခမဲ့)။ IP ပြောင်းသွားလို့ app ဖွင့်မရရင် EC2 မှာ IP
 အသစ် ကြည့်ပါ။
 
-⚠️ သတိ: ဒီ app မှာ login မပါဘူး — Security group ကို My IP ပဲ
+⚠️ သတိ: ဒီ app မှာ login မပါဘူး — app port (8501) ကို My IP ပဲ
 ဖွင့်ထားရင် ကိုယ်ကလွဲပြီး ဘယ်သူမှ ဝင်မရဘူး။ Gemini key တွေက browser
 localStorage မှာပဲ သိမ်းတာ — server ပေါ် မသိမ်းဘူး။
+
+### Connect မရရင် ("Failed to connect to your instance")
+
+1. **စောင့်ကြည့်**: instance ခုမှ launch ရင် boot မပြီးသေးလို့ ဖြစ်တတ်တယ်။
+   EC2 → Instances မှာ State **Running** ဖြစ်ပြီး Status check
+   **2/2 checks passed** ဖြစ်မှ Connect ပြန်နှိပ်ပါ (၂-၃ မိနစ်)။
+2. **Security group စစ်**: SSH (22) rule ရဲ့ Source က **0.0.0.0/0**
+   ဖြစ်ရမယ်။ "My IP" ပဲ ထားရင် EC2 Instance Connect က AWS IP ကနေ
+   ဝင်လို့ မရဘူး — ဒါ အဖြစ်များဆုံး အကြောင်းရင်းပဲ။
+3. **နောက်နည်း (key pair)**: လုံခြုံချင်ရင် launch တုန်းက key pair
+   တစ်ခုလုပ် (`.pem` download လုပ်) → Mac Terminal ကနေ:
+   ```bash
+   chmod 400 recap-key.pem
+   ssh -i recap-key.pem ubuntu@<public-ip>
+   ```
+   ဒီနည်းက SSH rule ကို My IP ပဲ ထားလည်း ရတယ်။
 
 ## Option C — AWS Lightsail (လစဉ် ပုံသေ)
 
