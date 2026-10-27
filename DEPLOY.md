@@ -51,22 +51,41 @@ Render အမြန်နှုန်း အတွက် dedicated CPU လို
 (disk ဖိုး နည်းနည်းပဲ) — $100 credit က လနဲ့ ချီ ခံတယ်။
 
 Steps:
-1. EC2 → Launch instance → Ubuntu 24.04 → **c7i.xlarge** → storage 30 GB →
-   Security group မှာ port **8501** (နဲ့ SSH 22) ဖွင့်ပါ → Launch.
-2. SSH ဝင်ပြီး:
+1. EC2 → **Launch instance** →
+   - Name: `recap-studio`
+   - AMI: **Ubuntu Server 24.04 LTS** (64-bit x86)
+   - Instance type: **c7i.xlarge** (4 vCPU / 8 GB)
+   - Key pair: **Proceed without a key pair** (browser Connect သုံးမှာ)
+   - Network: Security group အသစ် — **SSH (22)**: My IP၊ **Custom TCP
+     8501**: My IP (ကိုယ်တစ်ယောက်တည်း သုံးမှာမို့ My IP ပဲ အလုံခြုံဆုံး;
+     အားလုံးကို ဖွင့်ချင်ရင် 0.0.0.0/0)
+   - Storage: **30 GB gp3** → **Launch instance**.
+2. Instance ကို ရွေး → **Connect** → **EC2 Instance Connect** →
+   **Connect** (browser ထဲမှာ terminal ပွင့်လာမယ် — SSH key မလို).
+3. Terminal မှာ အောက်က command တွေ တစ်ကြောင်းချင်း run ပါ
+   (docker build က မိနစ် အနည်းငယ် ကြာမယ်):
    ```bash
    curl -fsSL https://get.docker.com | sudo sh
    git clone https://github.com/htinkyawzaw2017-maker/recap-studio-streamlit.git
    cd recap-studio-streamlit
    sudo docker build -t recap-studio .
    sudo docker run -d --restart unless-stopped -p 8501:8501 --name recap recap-studio
+   sudo docker ps        # recap Running ဖြစ်ရမယ်
    ```
-3. Browser: `http://<instance-public-ip>:8501`
+4. Browser: `http://<instance-public-ip>:8501` (public IP က EC2
+   instance စာမျက်နှာမှာ ကြည့်ပါ)။ App တက်လာရင် ပုံမှန် အတိုင်း
+   Gemini key ထည့်ပြီး သုံးရုံပဲ။
 
-⚠️ သတိ: ဒီ app မှာ login မပါဘူး — URL သိသူ ဝင်သုံးလို့ ရတယ်။ ကိုယ်တိုင်
-သုံးဖို့ဆို IP ကို လူသိ မခံပါနဲ့၊ ဒါမှမဟုတ် နောက်မှ HTTPS + password
-(Caddy reverse proxy) ခံပါ။ Gemini key တွေက browser localStorage မှာပဲ
-သိမ်းတာ — server ပေါ် မသိမ်းဘူး။
+💰 Credit ချွေတာနည်း: မသုံးတဲ့ အချိန် instance ကို **Stop** ထား —
+compute ဖိုး မကျဘူး (disk ဖိုး နည်းနည်းပဲ)။ ပြန်သုံးချင် **Start** ပြန်
+နှိပ်ရုံပဲ။ သတိထား: Stop/Start လုပ်တိုင်း public IP ပြောင်းတယ်
+(Elastic IP တွဲထားရင် မပြောင်းဘူး — running instance နဲ့ တွဲထားရင်
+Elastic IP က အခမဲ့)။ IP ပြောင်းသွားလို့ app ဖွင့်မရရင် EC2 မှာ IP
+အသစ် ကြည့်ပါ။
+
+⚠️ သတိ: ဒီ app မှာ login မပါဘူး — Security group ကို My IP ပဲ
+ဖွင့်ထားရင် ကိုယ်ကလွဲပြီး ဘယ်သူမှ ဝင်မရဘူး။ Gemini key တွေက browser
+localStorage မှာပဲ သိမ်းတာ — server ပေါ် မသိမ်းဘူး။
 
 ## Option C — AWS Lightsail (လစဉ် ပုံသေ)
 
