@@ -68,52 +68,75 @@ WORK_DIR.mkdir(parents=True, exist_ok=True)
 # ─────────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-  .stApp { background: linear-gradient(180deg, #0b1020 0%, #101736 220px, #0e1220 100%); }
+  /* v1.20 cinematic dark theme — modelled on the owner's reference
+     dashboard: near-black background, dark cards, orange→red accent,
+     green = done, orange = in progress, grey = pending. */
+  .stApp { background: #0a0a0f; color: #f4f4f5; }
+  [data-testid="stAppViewContainer"] { background: #0a0a0f; }
+  section[data-testid="stSidebar"] { background: #101014; border-right: 1px solid #1f1f28; }
+  section[data-testid="stSidebar"] h2 { color: #f4f4f5; }
   /* Hide the script editor's floating toolbar — the little + / eye /
      download / search / fullscreen buttons that pop up over the text
      (owner feedback 2026-10-23). Editing itself is unaffected. */
   [data-testid="stDataFrame"] [data-testid="stElementToolbar"] { display: none !important; }
   .hero {
-    background: linear-gradient(120deg, #6d28d9 0%, #db2777 55%, #f59e0b 130%);
+    background: linear-gradient(120deg, #1c1210 0%, #14141c 60%);
+    border: 1px solid #2a201c; border-left: 4px solid #ff7a18;
     border-radius: 20px; padding: 22px 28px; color: #fff;
-    box-shadow: 0 12px 32px rgba(0,0,0,.45); margin-bottom: 10px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.5); margin-bottom: 10px;
   }
   .hero h1 { margin: 0; font-size: 1.9rem; line-height: 1.2; }
-  .hero p  { margin: 6px 0 0 0; opacity: .92; font-size: .98rem; }
+  .hero p  { margin: 6px 0 0 0; opacity: .92; font-size: .98rem; color: #a1a1aa; }
+  .hero .grad {
+    background: linear-gradient(90deg, #ff7a18, #e5322d);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
   .stepbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 4px 0; }
   .pill {
     padding: 7px 14px; border-radius: 999px; font-size: .86rem; font-weight: 600;
-    background: rgba(255,255,255,.08); color: #cbd5e1; border: 1px solid rgba(255,255,255,.14);
+    background: #1c1c24; color: #8b8b9a; border: 1px solid #262630;
   }
   .pill.done   { background: #14532d; color: #bbf7d0; border-color: #22c55e55; }
-  .pill.active { background: #7c3aed; color: #fff; border-color: #a78bfa; }
+  .pill.active { background: linear-gradient(90deg, #ff7a18, #e5322d); color: #fff; border: none; }
   .card {
-    background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.10);
+    background: #14141c; border: 1px solid #262630;
     border-radius: 16px; padding: 6px 18px 14px 18px; margin: 14px 0;
   }
-  .card h3 { margin-top: 12px; }
+  .card h3 { margin-top: 12px; color: #f4f4f5; }
   div[data-testid="stMetric"] {
-    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.09);
+    background: #14141c; border: 1px solid #262630;
     border-radius: 12px; padding: 10px 12px;
   }
-  .stButton > button { border-radius: 12px; font-weight: 700; }
+  .stButton > button {
+    border-radius: 12px; font-weight: 700;
+    background: #1e1e28; color: #f4f4f5; border: 1px solid #2e2e3a;
+  }
+  .stButton > button:hover { border-color: #ff7a18; color: #fff; }
+  /* dark form fields — uploader, text inputs, selects, number inputs */
+  [data-testid="stTextInput"] input, [data-testid="stNumberInput"] input,
+  [data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+  [data-testid="stFileUploader"] section {
+    background: #1a1a22 !important; color: #f4f4f5 !important; border-color: #262630 !important;
+  }
+  [data-testid="stFileUploader"] section button { color: #f4f4f5; }
+  [data-testid="stProgress"] > div > div > div { background: linear-gradient(90deg, #ff7a18, #e5322d) !important; }
   /* videos keep their own ratio inside a tidy box — never stretched
      to fill the whole screen width */
   div[data-testid="stVideo"] {
     background: #000; border-radius: 14px; padding: 6px;
-    border: 1px solid rgba(255,255,255,.12);
+    border: 1px solid #262630;
   }
   div[data-testid="stVideo"] video {
     width: auto; max-width: 100%; max-height: 62vh; object-fit: contain;
     background: #000; border-radius: 10px; display: block; margin: 0 auto;
   }
   .bigbtn > button {
-    background: linear-gradient(120deg, #7c3aed, #db2777) !important; color: #fff !important;
+    background: linear-gradient(90deg, #ff7a18, #e5322d) !important; color: #fff !important;
     border: none !important; padding: .65rem 1rem !important; font-size: 1.02rem !important;
   }
   .okbtn > button { background: #16a34a !important; color: #fff !important; border: none !important; }
   .warnline { color: #fbbf24; font-size: .88rem; }
-  .footer { text-align: center; color: #94a3b8; font-size: .82rem; margin: 26px 0 8px 0; }
+  .footer { text-align: center; color: #71717a; font-size: .82rem; margin: 26px 0 8px 0; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -319,10 +342,10 @@ def current_info() -> dict | None:
 # ─────────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="hero">
-  <h1>🎬 Recap Studio MM — Free Edition</h1>
+  <h1>🎬 <span class="grad">Recap Studio MM</span> — Free Edition</h1>
   <p>ဘာသာစကားမရွေး ဗီဒီယို → သဘာဝကျတဲ့ 🇲🇲 မြန်မာ / 🇬🇧 English Recap —
      Gemini Free Keys အများကြီး သုံးနိုင်ပြီး၊ Script ကို အရင်ပြင်ပြီးမှ Render လုပ်ပါတယ်။</p>
-  <p style="opacity:.75">app v1.19</p>
+  <p style="opacity:.75">app v1.20</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -961,6 +984,6 @@ if SS["outputs"]:
         st.markdown(f'<span class="warnline">⚠️ {_w}</span>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="footer">Recap Studio MM — Free Edition (Streamlit) • app v1.19 • '
+st.markdown('<div class="footer">Recap Studio MM — Free Edition (Streamlit) • app v1.20 • '
             'အခြေခံ engine: Recap Studio MM Pro v4.4 • Gemini Free + Edge TTS + FFmpeg</div>',
             unsafe_allow_html=True)
