@@ -135,10 +135,65 @@ SS.setdefault("fit", None)
 SS.setdefault("script_version", 0)   # bump → editor resets from dialogues
 SS.setdefault("script_confirmed", False)
 SS.setdefault("edited_dialogues", [])
+SS.setdefault("draft_dialogues", [])  # editor draft (unconfirmed edits)
 SS.setdefault("outputs", None)       # render results
 SS.setdefault("logs", [])
 SS.setdefault("busy", False)         # a long job is running → lock buttons
+SS.setdefault("project_id", "")      # ?project=… in the URL (v1.11)
 BUSY = bool(SS.get("busy"))
+
+
+# ── project persistence (v1.11): refresh must NOT reset to step 1 ───────
+# State lives in WORK_DIR/project_<id>/progress.json; the id travels in
+# the URL, which survives refreshes. Restored before anything renders so
+# the stepper lands on the exact step the user was on.
+from recapstudio import progress as _progress  # noqa: E402
+
+
+def ensure_project() -> str:
+    """Create (once) + pin the project id into the URL."""
+    pid = SS.get("project_id") or ""
+    if not pid:
+        pid = uuid.uuid4().hex[:8]
+        SS["project_id"] = pid
+    try:
+        cur = st.query_params.get("project", "")
+        if isinstance(cur, list):
+            cur = cur[0] if cur else ""
+        if cur != pid:
+            st.query_params["project"] = pid
+    except Exception:
+        pass
+    return pid
+
+
+def save_progress() -> None:
+    pid = SS.get("project_id") or ""
+    if pid:
+        _progress.save_progress(
+            WORK_DIR, pid, {k: SS.get(k) for k in _progress.PERSIST_KEYS})
+
+
+def restore_progress() -> bool:
+    if SS.get("_restored"):
+        return True
+    try:
+        pid = st.query_params.get("project", "")
+        if isinstance(pid, list):
+            pid = pid[0] if pid else ""
+    except Exception:
+        pid = ""
+    data = _progress.load_progress(WORK_DIR, pid) if pid else None
+    if not data:
+        return False
+    for k, v in data.items():
+        SS[k] = v
+    SS["project_id"] = pid
+    SS["_restored"] = True
+    return True
+
+
+restore_progress()
 
 
 def secret_keys() -> list[str]:
@@ -210,9 +265,12 @@ def set_current(path: str, label: str) -> None:
     SS["current_label"] = label
     SS["dialogues"] = []
     SS["edited_dialogues"] = []
+    SS["draft_dialogues"] = []
     SS["script_confirmed"] = False
     SS["outputs"] = None
     SS["script_version"] += 1
+    ensure_project()
+    save_progress()
 
 
 def show_video(path: str) -> None:
@@ -348,8 +406,20 @@ with st.sidebar:
         SS["parts"] = []
         SS["dialogues"] = []
         SS["edited_dialogues"] = []
+        SS["draft_dialogues"] = []
         SS["script_confirmed"] = False
         SS["outputs"] = None
+        # v1.11: a workspace wipe must also drop the saved project,
+        # or the next refresh would resurrect the wiped state.
+        _pid = SS.get("project_id") or ""
+        if _pid:
+            import shutil as _sh3
+            _sh3.rmtree(_progress.project_dir(WORK_DIR, _pid), ignore_errors=True)
+            SS["project_id"] = ""
+            try:
+                del st.query_params["project"]
+            except Exception:
+                pass
         st.success(f"✅ ရှင်းပြီးပါပြီ — {human_bytes(_freed)} လွတ်သွားပါသည်")
         st.rerun()
     st.caption("Free stack: Gemini Free Tier • Edge TTS • FFmpeg • yt-dlp — "
@@ -378,6 +448,8 @@ with _tab_up:
                 SS["video_info"] = get_video_info(str(_dest))
             except Exception as exc:
                 st.error(f"ဗီဒီယို ဖတ်၍ မရပါ: {exc}")
+            ensure_project()
+            save_progress()
             st.rerun()
 
 with _tab_link:
@@ -426,6 +498,8 @@ with _tab_link:
             SS["video_path"] = str(_dest)
             SS["parts"] = []
             SS["video_info"] = get_video_info(str(_dest))
+            ensure_project()
+            save_progress()
             st.rerun()
         else:
             st.error("ဒေါင်းလုဒ် မရပါ — YouTube က server IP ကို ပိတ်ထားတာ ဖြစ်နိုင်ပါတယ်။ "
@@ -469,6 +543,8 @@ if SS["video_path"] and Path(SS["video_path"]).exists():
                 progress=lambda p, m: _bar.progress(min(1.0, p / 100.0), m),
                 out_dir=WORK_DIR / "parts")
             SS["parts"] = _parts
+            ensure_project()
+            save_progress()
             _bar.progress(1.0, f"✅ အပိုင်း {len(_parts)} ပိုင်း ရပါပြီ")
         except Exception as exc:
             st.error(f"ခွဲထုတ် မအောင်မြင်ပါ: {exc}")
@@ -581,6 +657,9 @@ else:
                                     "sub_on": sub_on, "mute_org": mute_org,
                                     "mirror": mirror_on,
                                     "fill_mode": fill_mode}
+                SS["draft_dialogues"] = []
+                ensure_project()
+                save_progress()
                 _status.update(label=f"✅ Script လိုင်း {len(SS['dialogues'])} လိုင်း ရပါပြီ — "
                                      f"အဆင့် 4️⃣ မှာ ပြင်ပြီး အတည်ပြုပါ", state="complete")
                 SS["busy"] = False
@@ -624,10 +703,18 @@ if SS["dialogues"]:
     import pandas as pd
     _editor_key = f"script_editor_v{SS['script_version']}"
     if _editor_key not in SS:
+        # v1.11 restore: after a refresh the editor rebuilds from the
+        # confirmed script (or the latest unconfirmed draft), not from
+        # the raw AI dialogues — otherwise edits would silently vanish.
+        _src = SS["dialogues"]
+        if SS["script_confirmed"] and SS["edited_dialogues"]:
+            _src = SS["edited_dialogues"]
+        elif SS.get("draft_dialogues"):
+            _src = SS["draft_dialogues"]
         SS[_editor_key] = pd.DataFrame([
             {"start": _sf(d.get("start")), "end": _sf(d.get("end")),
              "speaker": str(d.get("speaker", "") or ""), "text": str(d.get("text", "") or "")}
-            for d in SS["dialogues"]])
+            for d in _src])
     _df = SS[_editor_key]
     _over = sum(1 for _, r in _df.iterrows()
                 if len(str(r.get("text", "") or "")) / _cps
@@ -645,6 +732,21 @@ if SS["dialogues"]:
             "speaker": st.column_config.TextColumn("ပြောသူ"),
             "text": st.column_config.TextColumn("Recap စာသား", width="large", max_chars=400),
         })
+    # v1.11: keep the latest unconfirmed draft on disk so a refresh
+    # never loses in-editor typing either (confirmed state is separate).
+    if SS.get("project_id") and not SS["script_confirmed"]:
+        try:
+            _draft = []
+            for _r in _edited.to_dict("records"):
+                _t = str(_r.get("text", "") or "")
+                _s = str(_r.get("speaker", "") or "")
+                _draft.append({"start": _sf(_r.get("start")), "end": _sf(_r.get("end")),
+                               "speaker": "" if _s == "nan" else _s,
+                               "text": "" if _t == "nan" else _t})
+            SS["draft_dialogues"] = _draft
+            save_progress()
+        except Exception:
+            pass
     _b1, _b2 = st.columns(2)
     if _b1.button("⏱️ ရှည်သောလိုင်း စစ်မည်", disabled=BUSY):
         _rows = _edited.to_dict("records")
@@ -673,7 +775,9 @@ if SS["dialogues"]:
             st.error("စာကြောင်း တစ်ကြောင်းမှ မရှိပါ — အရင် စာထည့်ပါ")
         else:
             SS["edited_dialogues"] = _rows
+            SS["draft_dialogues"] = []
             SS["script_confirmed"] = True
+            save_progress()
             st.success(f"✅ လိုင်း {len(_rows)} လိုင်း အတည်ပြုပြီးပါပြီ — အဆင့် 5️⃣ Render လုပ်နိုင်ပါပြီ")
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
@@ -776,6 +880,10 @@ else:
                             str(_plain), str(_out), track=_track,
                             track_height=_th, height=_size[1],
                             hook_png=_hook_png, duration=_total, progress=_rp)
+                        # v1.11: say so explicitly — the burn progress
+                        # bar sits at 100% while ffmpeg finalises the
+                        # file, which used to look like a freeze.
+                        _status.update(label="✅ စာတန်း ထည့်ပြီးပါပြီ — နောက်ဆုံး ဖိုင် ပြင်နေပါသည်…")
                         _sub_note = "စာတန်း: မြန်မာ အက္ခရာ ပုံသွင်း အမှန်ရတဲ့ PNG (Raqm) နည်းနဲ့ ထည့်ထားပါတယ်"
                     else:
                         _plain.replace(_out)
@@ -803,6 +911,7 @@ else:
                               "duration": _total,
                               "warnings": list(_res.get("warnings", [])) + list(_mix.warnings)
                               + ([_sub_note] if _sub_note else [])}
+            save_progress()
             # job ပြီးတာနဲ့ ယာယီဖိုင်တွေ ရှင်း (final ဖိုင် ၃ ခုပဲ ထား)
             for _f in list(_job.iterdir()):
                 if _f.name not in {"recap_final.mp4", "recap.srt", "narration.mp3"}:

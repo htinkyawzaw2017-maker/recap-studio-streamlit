@@ -304,4 +304,32 @@ _repaired = _ex._repair_fragments([
 ok("လေးစားရတဲ့" in _repaired[0]["text"],
    "repair pass expands a terse line up to its window budget")
 
+# ── v1.11: project persistence — refresh must not reset to step 1 ─────
+import tempfile as _tf
+from pathlib import Path as _Pl
+from recapstudio.progress import load_progress, save_progress
+_tmpd = _tf.mkdtemp(prefix="recap_progress_")
+_state = {"video_path": "/tmp/v.mp4", "video_info": {"duration": 180.0},
+          "parts": [], "current_path": "/tmp/v.mp4", "current_label": "full",
+          "dialogues": [{"start": 0.0, "end": 5.0, "speaker": "", "text": "Test line."}],
+          "hook1": "Hook", "hook2": "", "coverage": {"coverage_percent": 95},
+          "fit": {}, "script_version": 1, "script_confirmed": True,
+          "edited_dialogues": [{"start": 0.0, "end": 5.0, "speaker": "", "text": "Edited."}],
+          "draft_dialogues": [], "outputs": {"mp4": "/tmp/f.mp4", "size": 123},
+          "render_cfg": {"lang": "my"}, "keys": ["SECRET-MUST-NOT-PERSIST"],
+          "busy": True}
+ok(save_progress(_tmpd, "abc123", _state), "progress saved to disk")
+_back = load_progress(_tmpd, "abc123")
+ok(_back is not None and _back["script_confirmed"] is True
+   and _back["edited_dialogues"][0]["text"] == "Edited."
+   and _back["outputs"]["mp4"] == "/tmp/f.mp4",
+   "progress round-trips (script + outputs)")
+ok("keys" not in _back and "busy" not in _back,
+   "secrets/transient state never persisted")
+ok(load_progress(_tmpd, "nope") is None, "missing project loads as None")
+(_Pl(_tmpd) / "project_bad" / "progress.json").parent.mkdir(exist_ok=True)
+(_Pl(_tmpd) / "project_bad" / "progress.json").write_text("{not json")
+ok(load_progress(_tmpd, "bad") is None, "corrupt save loads as None, never crashes")
+ok(not save_progress(_tmpd, "", _state), "empty project id refuses to save")
+
 print(f"\nALL {checks} CHECKS PASSED → {out}")

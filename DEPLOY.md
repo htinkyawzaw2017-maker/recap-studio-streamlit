@@ -71,8 +71,14 @@ Steps:
    git clone https://github.com/htinkyawzaw2017-maker/recap-studio-streamlit.git
    cd recap-studio-streamlit
    sudo docker build -t recap-studio .
-   sudo docker run -d --restart unless-stopped -p 8501:8501 --name recap recap-studio
+   sudo docker run -d --restart unless-stopped -p 8501:8501 \
+     -v recap-data:/app/data --name recap recap-studio
    sudo docker ps        # recap Running ဖြစ်ရမယ်
+   # -v recap-data:/app/data က အရေးကြီးတယ်: container ဖျက်/အသစ်
+   # ဆောက်လည်း upload/script/output တွေ volume ထဲမှာ ကျန်တယ်။
+   # (volume မပါဘဲ run ထားတဲ့ container အဟောင်းရဲ့ data က
+   # container နဲ့အတူ ပျက်သွားမယ် — rebuild မလုပ်ခင် ပြီးတဲ့
+   # output ရှိရင် app ကနေ အရင် download လုပ်ထားပါ။)
    ```
 4. Browser: `http://<instance-public-ip>:8501` (public IP က EC2
    instance စာမျက်နှာမှာ ကြည့်ပါ)။ App တက်လာရင် ပုံမှန် အတိုင်း
