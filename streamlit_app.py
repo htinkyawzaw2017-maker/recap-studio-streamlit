@@ -322,6 +322,7 @@ st.markdown("""
   <h1>🎬 Recap Studio MM — Free Edition</h1>
   <p>ဘာသာစကားမရွေး ဗီဒီယို → သဘာဝကျတဲ့ 🇲🇲 မြန်မာ / 🇬🇧 English Recap —
      Gemini Free Keys အများကြီး သုံးနိုင်ပြီး၊ Script ကို အရင်ပြင်ပြီးမှ Render လုပ်ပါတယ်။</p>
+  <p style="opacity:.75">app v1.18</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -956,6 +957,6 @@ if SS["outputs"]:
         st.markdown(f'<span class="warnline">⚠️ {_w}</span>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="footer">Recap Studio MM — Free Edition (Streamlit) • app v1.17 • '
+st.markdown('<div class="footer">Recap Studio MM — Free Edition (Streamlit) • app v1.18 • '
             'အခြေခံ engine: Recap Studio MM Pro v4.4 • Gemini Free + Edge TTS + FFmpeg</div>',
             unsafe_allow_html=True)

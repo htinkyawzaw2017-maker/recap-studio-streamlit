@@ -1285,11 +1285,37 @@ class TimelineExtractor:
              fallback line so continuous mode never goes silent.
         """
         if self.fill_mode != "continuous":
-            # 🎭 Dialogue dubbing: only real speech is dubbed. Filling the
-            # quiet parts with invented narration is exactly what this mode
-            # must NOT do, so report the silence and stop.
+            # 🎭 Dialogue dubbing: only real speech is dubbed — never fill
+            # quiet parts with invented narration. BUT a long hole usually
+            # means the model skipped speech, so re-analyse big holes
+            # (>20s, up to 6, longest first) against the actual video,
+            # exactly like recap does: if the region is genuinely silent
+            # the model returns nothing and the hole stays silent,
+            # correctly. This is what makes a dub complete start-to-finish
+            # instead of leaving 60s+ holes the user must discover.
             quiet = find_gaps(dialogues, duration, 3.0)
             longest = max((g["end"] - g["start"] for g in quiet), default=0.0)
+            big = sorted([g for g in quiet if g["end"] - g["start"] > 20.0],
+                         key=lambda g: g["start"] - g["end"])[:6]
+            region_lines: list[dict] = []
+            if big and self.client is not None and not self.demo:
+                for gap in big:
+                    self._check_cancel()
+                    try:
+                        lines = self._ask_region(Path(""), video_path, gap["start"],
+                                                 gap["end"], duration, focus=False)
+                        region_lines.extend(lines)
+                        self.log(f"↻ dubbing re-analysis {gap['start']:.0f}-{gap['end']:.0f}s "
+                                 f"→ {len(lines)} lines")
+                    except CancelledError:
+                        raise
+                    except Exception as exc:
+                        self.log(f"⚠️ dubbing region re-analysis failed "
+                                 f"({gap['start']:.0f}s): {exc}")
+            if region_lines:
+                dialogues = normalise(dialogues + region_lines, duration)
+                quiet = find_gaps(dialogues, duration, 3.0)
+                longest = max((g["end"] - g["start"] for g in quiet), default=0.0)
             self.log(f"🎭 Dialogue dub mode: {len(dialogues)} စကားပြောလိုင်း — "
                      f"တိတ်ဆိတ်ချိန်ကို ဖြည့်စွက်ခြင်း မလုပ်ပါ (အရှည်ဆုံး {longest:.1f}s)")
             return dialogues, 0, longest
@@ -1637,6 +1663,13 @@ Rewrite EACH line into ONE complete, full, natural, flowing sentence:
                 fixed += 1
         if fixed:
             self.log(f"🪡 Fragment repair: အပိုင်းအစ {fixed} လိုင်း ကို ဝါကျ အပြည့် ပြန်ရေးပြီးပါပြီ")
+        elif batch:
+            # v1.18: silence here used to look identical to "nothing was
+            # broken" — say plainly that lines stayed broken so the next
+            # diagnosis starts from evidence, not another blind rebuild.
+            self.log(f"⚠️ Fragment repair: အပိုင်းအစ {len(batch)} လိုင်း ပြင်လို့ မရပါ — "
+                     f"model ပြန်ချက် လက်ခံလို့ မရခြင်း (ဝါကျမပြည့်/ window ကျော်) — "
+                     f"editor မှာ ပြင်နိုင်ပါတယ်")
         return lines
 
     def _enforce_minute_fit(self, dialogues: list[dict],

@@ -497,6 +497,40 @@ _float = normalise([{"start": 147.65300000000002, "end": 154.13766040000002,
 ok(_float[0]["start"] == 147.65 and _float[0]["end"] == 154.14,
    "computed timestamps round to 0.01s")
 
+# ── v1.18: full chain on the owner's Narrator paste (18 → 12 lines) ─
+_chain_raw = [
+    (0.0, 2.0, "သားတွေကို အသက်ကယ်လှေပေါ် တင်ပေးခဲ့တယ်"),
+    (2.0, 4.0, "တိုက်တန်းနစ် နစ်မြုပ်နေချိန်"),
+    (4.0, 6.0, "ဒါပေမဲ့ သူတို့နဲ့ လိုက်မယ့်အစား"),
+    (6.0, 9.0, "သူတို့ကို နှုတ်ဆက်နမ်းရှုံ့ပြီး သင်္ဘောနဲ့ နစ်မြုပ်ခဲ့တယ်"),
+    (9.0, 12.0, "ကလေးတွေကို ကယ်ဆယ်လှေတင်တော့."),
+    (12.0, 13.0, "ဘယ်သူမှ မသိဘူး"),
+    (13.0, 14.0, "သူတို့ ဘယ်သူလဲဆိုတာ"),
+    (14.0, 15.0, "သူတို့ ပြင်သ။"),
+    (15.0, 19.0, "ဒါပေမဲ့ ငယ်လွန်းလို့ နာမည်၊ နေရပ်မပြောနိုင်ခဲ့."),
+    (19.0, 22.0, "ရက်သတ္တပတ်များစွာ ဘယ်သူမှမခေါ်ခဲ့."),
+    (22.0, 26.0, "ဒါပေမဲ့ ကလေးပုံ ပြင်သစ်သတင်းစာပါလာတော့."),
+    (26.0, 28.0, "အမျိုးသမီးတစ်ဦး။"),
+    (28.0, 31.0, "လအနည်းငယ်က ခင်ပွန်းနဲ့ ရန်ဖြစ်ခဲ့."),
+    (31.0, 34.0, "သူထွက်သွားတော့ ကလေးတွေ ခိုးသွား."),
+    (34.0, 38.0, "အမေရိကမှာ ဘဝသစ်စဖို့ တိုက်တန်းနစ်တက်ခဲ့."),
+    (38.0, 41.0, "အခုတော့ သူမ ဒီအဖြစ်အပျက် မသိခဲ့."),
+    (41.0, 43.0, "ဒါပေမဲ့ သူမ သူတို့ပုံ မြင်လိုက်တော့"),
+    (43.0, 47.066848, "သူမ သားတွေနဲ့ ပြန်ဆုံဖို့ အတ္တလန္တိတ်ဖြတ်ကျော်."),
+]
+_chain = [{"start": s, "end": e, "speaker": "Narrator", "text": t}
+           for s, e, t in _chain_raw]
+_chain = [dict(d, text=normalise_my_punctuation(d["text"]))
+          for d in normalise(_chain, 47.07)]
+_chain = TimelineExtractor(fill_mode="dialogue")._merge_fragments(_chain)
+_chain, _crep = TimelineExtractor(fill_mode="dialogue")._enforce_minute_fit(
+    _chain, 47.07)
+ok(len(_chain) == 12 and _crep["fixed_ai"] == 0 and _crep["fixed_cut"] == 0
+   and not any("." in d["text"] for d in _chain)
+   and "နစ်မြုပ်ခဲ့တယ်" in _chain[1]["text"]
+   and "ဖြတ်ကျော်။" in _chain[-1]["text"],
+   "owner Narrator paste composes through the full chain (18 → 12 lines)")
+
 # ── v1.11: project persistence — refresh must not reset to step 1 ─────
 import tempfile as _tf
 from pathlib import Path as _Pl
