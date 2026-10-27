@@ -635,7 +635,7 @@ RECAP VOICE — NON-NEGOTIABLE (မြန်မာ):
 DUBBING VOICE — NON-NEGOTIABLE (မြန်မာ):
 - မူရင်း အဓိပ္ပာယ်ကို လူပြော မြန်မာစကား စစ်စစ်နဲ့ ပြန်ပါ — တိုက်ရိုက် ဘာသာပြန် (translationese) လုံးဝ မဖြစ်ရ။ မြန်မာတွေ တကယ် ပြောတဲ့ ပုံစံ၊ သဒ္ဒါ အစီအစဉ် မှန်မှန်။
 - ပြောသူရဲ့ စိတ်ခံစားမှု၊ အသံအနိမ့်အမြင့်၊ ရင်းနှီးမှု အဆင့် (ခင်မင်တဲ့ ပုံစံ/ရိုသေတဲ့ ပုံစံ) ကို ထိန်းထားပါ။
-- လိုင်းတိုင်းသည် သီးခြား ဖတ်ကြည့်ရင် ဝါကျအပြည့် ဖြစ်ရမည် — ကြိယာ အပြည့်အစုံ (ပါတယ်/တယ်/သည်/ခဲ့/ပြီ/လား) နဲ့ ဆုံးရမည်။ ပြောသူက အတွေးကို နောက်အလှည့်မှာ ဆက်ပြောရင်တောင် ဒီလိုင်းကို အဲဒီ context နဲ့ သဘာဝကျကျ အပြည့်အစုံ ဖြစ်အောင် ပြန်ရေးပါ — ဖြတ်ထားတဲ့နေရာအတိုင်း "။" ချပြီး မထားရ။
+- လိုင်းတိုင်းသည် သီးခြား ဖတ်ကြည့်ရင် ဝါကျအပြည့် ဖြစ်ရမည် — ကြိယာ အပြည့်အစုံ (ပါတယ်/တယ်/သည်/ခဲ့/ပြီ/လား) နဲ့ ဆုံးရမည်။ မူရင်းအလှည့် တစ်ခု = ဘာသာပြန်လိုင်း တစ်လိုင်း — အလှည့်တစ်ခုကို နှစ်လိုင်းခွဲမရေးရ၊ အလှည့်နှစ်ခုကို တစ်လိုင်းပေါင်းမရေးရ။ အဲဒီအလှည့်မှာ တကယ်ပြောခဲ့တာကို တိတိကျကျ၊ အပြည့်အစုံ ပြန်ပါ။
 - လုံးဝ မဆုံးရ: ကို/မှာ/တာ/ရဲ့/၏/ဆိုတာ/တော့/လည်း/ဖြစ် (တစ်လုံးတည်း) စတဲ့ အပိုင်းအစ အဆုံးသတ်တွေ။ ဥပမာ "…သူတွေကို။" "…ဆိုတာ။" "…အဘွားကြီးရဲ့။" ဆိုတဲ့ လိုင်းမျိုး လုံးဝ မရေးရ။
 - "…" / "..." နဲ့ လုံးဝ မဆုံးရ — ဖြတ်ထားတဲ့ စကားကို ဝါကျအပြည့် ဖြစ်အောင် ပြန်ပါ။'''
     elif selected_mode == "continuous":
@@ -673,8 +673,14 @@ DUBBING VOICE — NON-NEGOTIABLE:
   never add a line to satisfy clip coverage.
 - Timestamp each utterance from the audio onset to audio offset using absolute full-video seconds.
   Use separate entries for separate speaker turns or clear pauses; do not merge distant speech.
-- Translate the audible meaning faithfully into {lang_instruction}. Keep names, intent and emotion;
-  do not omit important information or add plot explanation.
+- Translate EXACTLY what is spoken — one original turn = one translated entry, in speech order.
+  Do not summarize, retell, merge turns, or leave a turn half-translated; keep names, intent and
+  emotion, do not omit important information or add plot explanation.
+- NEVER give two entries the same start time, and NEVER use the clip end or the full-video
+  duration as a timestamp — stamp each entry from its own audible onset/offset. If a boundary
+  is uncertain, order the entries by speech and space them inside the clip; a pile of entries
+  at one timestamp is a defect.
+- Never cut a word in half — finish every word fully.
 - Keep the translation short enough for its own [start, end] speech window at a calm, natural pace.
   Do not use a later speaker's start as extra time and do not stretch a line into silence."""
 
@@ -802,14 +808,59 @@ def normalise(dialogues: Iterable[dict], duration: float) -> list[dict]:
         cleaned.append({"start": st, "end": en,
                         "speaker": str(item.get("speaker", ""))[:40], "text": text})
 
-    # de-overlap: a line may never run into the next line's start
+    # v1.14: spread pile-ups — the model sometimes stamps several lines
+    # with one timestamp (often the video duration, e.g. six dubbing
+    # turns all at 180.07), which made them all speak at once at the end
+    # ("နောက်နေသလို"). Lines sharing a start get sequential windows:
+    # forward from their stamp when there is room, otherwise backward
+    # ending at the next line's start (or the duration).
+    spread: list[dict] = []
+    i = 0
+    while i < len(cleaned):
+        j = i + 1
+        while j < len(cleaned) and abs(cleaned[j]["start"] - cleaned[i]["start"]) < 0.01:
+            j += 1
+        run = cleaned[i:j]
+        nxt = cleaned[j]["start"] if j < len(cleaned) else duration
+        prev_end = spread[-1]["end"] if spread else 0.0
+        if len(run) == 1 and run[0]["start"] < duration:
+            spread.append(run[0])
+            i = j
+            continue
+        needs = [max(0.8, estimate_speech_seconds(d["text"])) for d in run]
+        total = sum(needs) + 0.1 * (len(run) - 1)
+        lo = max(prev_end + 0.05, 0.0)
+        hi = nxt if nxt > lo else lo + total
+        if total > hi - lo and hi > lo:
+            # not enough room: split the span evenly, keep order
+            step = (hi - lo) / len(run)
+            for k, d in enumerate(run):
+                d["start"] = lo + k * step
+                d["end"] = lo + (k + 1) * step
+        else:
+            if run[0]["start"] >= lo and run[0]["start"] + total <= hi:
+                cursor = run[0]["start"]
+            else:
+                cursor = max(lo, hi - total)
+            for d, need in zip(run, needs):
+                d["start"] = cursor
+                d["end"] = min(hi, cursor + need)
+                cursor = d["end"] + 0.1
+        spread.extend(run)
+        i = j
+    cleaned = spread
+
+    # de-overlap: a line may never run into the next line's start, and
+    # no line may run past the video end (the old version pushed ends
+    # past duration for lines stamped at the end)
     merged: list[dict] = []
     for idx, line in enumerate(cleaned):
         if idx + 1 < len(cleaned):
             nxt = cleaned[idx + 1]["start"]
             if line["end"] > nxt:
-                line["end"] = max(line["start"] + 0.4, nxt)
-        merged.append(line)
+                line["end"] = min(duration, max(line["start"] + 0.4, nxt))
+        if line["end"] > line["start"]:
+            merged.append(line)
     return merged
 
 

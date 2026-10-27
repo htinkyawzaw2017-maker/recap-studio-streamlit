@@ -364,6 +364,37 @@ ok("အမှန်ပါ" in _repd[0]["text"],
 ok(_repd[1]["text"] == "ရဟန်းက အသားစားလို့ရလို့လား။",
    "complete dubbing turn untouched by repair")
 
+# ── v1.14: same-timestamp pile-ups get spread into sequence ─────────
+from recapstudio.ai import normalise
+# the owner's dubbing tail: six turns all stamped at the video duration
+_pile = [{"start": 138.5, "end": 142.0, "speaker": "Man", "text": "သွား၊ နင်နဲ့ ယမမင်းရဲ့ ပတ်သက်မှုတွေကို ဆေးကြောလိုက်။"}]
+for _t in ("အာဖူ၊ မင်း ကိုယ့်စိတ်ကို လိုက်နာရမယ်။", "ဒီလူတွေရဲ့။", "ပြုံးမျက်နှ။",
+           "နွားခေါင်း။", "ငရဲပြည်ရဲ့။", "ဟောင်းနွမ်း။"):
+    _pile.append({"start": 180.070312, "end": 180.070312, "speaker": "Man", "text": _t})
+_sp = normalise(_pile, 180.070312)
+_tail = _sp[1:]
+ok(len(_tail) == 6
+   and all(_tail[k]["start"] < _tail[k + 1]["start"] for k in range(5))
+   and all(d["end"] <= 180.070312 for d in _tail)
+   and _tail[0]["start"] >= 142.05
+   and _tail[0]["text"].startswith("အာဖူ") and _tail[-1]["text"].startswith("ဟောင်း"),
+   "duration pile-up spreads into ordered lines inside the video")
+# pile-up mid-video lays forward from its stamp, capped at the next line
+_mid = [{"start": 10.0, "end": 10.0, "speaker": "", "text": "စာတစ်ကြောင်း။"},
+        {"start": 10.0, "end": 10.0, "speaker": "", "text": "စာနှစ်ကြောင်း။"},
+        {"start": 10.0, "end": 10.0, "speaker": "", "text": "စာသုံးကြောင်း။"},
+        {"start": 20.0, "end": 23.0, "speaker": "", "text": "နောက်လိုင်း။"}]
+_sm = normalise(_mid, 60.0)
+ok(_sm[0]["start"] == 10.0
+   and _sm[0]["start"] < _sm[1]["start"] < _sm[2]["start"]
+   and _sm[2]["end"] <= 20.0, "mid-video pile-up lays forward in order")
+# a lone line stamped exactly at the duration is pulled back inside
+_one = [{"start": 100.0, "end": 105.0, "speaker": "", "text": "အရင်လိုင်း။"},
+        {"start": 180.070312, "end": 180.070312, "speaker": "", "text": "နောက်ဆုံးလိုင်း။"}]
+_so = normalise(_one, 180.070312)
+ok(_so[1]["start"] < 180.070312 and _so[1]["end"] == 180.070312,
+   "line stamped at duration is pulled back inside")
+
 # ── v1.11: project persistence — refresh must not reset to step 1 ─────
 import tempfile as _tf
 from pathlib import Path as _Pl
