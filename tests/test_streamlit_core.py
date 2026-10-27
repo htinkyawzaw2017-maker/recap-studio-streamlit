@@ -304,6 +304,29 @@ _repaired = _ex._repair_fragments([
 ok("လေးစားရတဲ့" in _repaired[0]["text"],
    "repair pass expands a terse line up to its window budget")
 
+# ── v1.12: bare-topic / trailing-also fragments + flowing merge ───────
+for _frag in ("သူဟာ။", "သူမဟာ။", "ငါလည်း။"):
+    ok(not sentence_complete(_frag, "my"), f"fragment detected: {_frag[:18]}…")
+for _full in ("သူဟာ လူကြီး တစ်ဦး ဖြစ်ပါတယ်။", "ဒါဟာ ငါ့အိမ်ပါ။"):
+    ok(sentence_complete(_full, "my"), f"complete sentence kept: {_full[:18]}…")
+# the owner's Titanic chain: without the ဟာ suffix the merge chain broke
+# at line 3 and nothing joined; with it + the strip-join, lines 1-4 flow
+# as ONE sentence (single final "။") and line 5 stays separate (16s cap)
+_titanic = [
+    {"start": 0.0, "end": 3.9, "speaker": "",
+     "text": "တိုက်တန်းနစ်သင်္ဘောကြီး နစ်မြုပ်နေချိန်မှာ။"},
+    {"start": 4.0, "end": 6.7, "speaker": "", "text": "ဒါပေမဲ့ သူကိုယ်တိုင်ကတော့။"},
+    {"start": 7.0, "end": 9.2, "speaker": "", "text": "အဲဒီနောက်မှာတော့ သူဟာ။"},
+    {"start": 9.7, "end": 13.0, "speaker": "",
+     "text": "ကလေးနှစ်ယောက်ကို ကယ်ဆယ်ရေးလှေပေါ်။"},
+    {"start": 13.6, "end": 19.3, "speaker": "",
+     "text": "ပြင်သစ်လိုပြောပေမဲ့ ငယ်လွန်း၍ နာမည်၊ လိပ်စာ မပြောနိုင်ခဲ့။"},
+]
+_mt = TimelineExtractor()._merge_fragments([dict(d) for d in _titanic])
+ok(len(_mt) == 2 and _mt[0]["text"].count("။") == 1
+   and _mt[0]["end"] == 13.0 and "သူဟာ ကလေးနှစ်ယောက်" in _mt[0]["text"],
+   "titanic fragments merge into one flowing sentence")
+
 # ── v1.11: project persistence — refresh must not reset to step 1 ─────
 import tempfile as _tf
 from pathlib import Path as _Pl

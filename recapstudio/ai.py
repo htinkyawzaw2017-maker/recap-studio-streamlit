@@ -870,6 +870,11 @@ _MY_FRAGMENT_SUFFIXES = (
     # ("ယောက်ျားလေးနှင့်။"), a bare noun phrase ("မျက်လုံးများ။"),
     # or a subordinate participle ("ထိုင်ကာ။", "လုပ်လျက်။").
     "သို့", "နှင့်", "များ", "ကာ", "လျက်",
+    # v1.12: a bare topic with no comment ("သူဟာ။", "သူမဟာ။") and a
+    # trailing "also" ("ငါလည်း။") are fragments too — missing either
+    # one broke whole merge chains, because the merge only continues
+    # through lines it recognises as fragments.
+    "ဟာ", "လည်း",
 )
 
 
@@ -1377,9 +1382,17 @@ class TimelineExtractor:
                 prev_text = str(prev.get("text", "")).strip()
                 prev_window = float(prev.get("end", 0.0)) - float(prev.get("start", 0.0))
                 gap = float(d.get("start", 0.0)) - float(prev.get("end", 0.0))
-                joined = f"{prev_text} {str(d.get('text', '')).strip()}".strip()
+                prev_frag = not sentence_complete(prev_text, self.lang)
+                # v1.12: when the previous line is a FRAGMENT, its "။"
+                # is a false boundary — drop it so the joined line reads
+                # as ONE flowing sentence ("…နေချိန်မှာ ဒါပေမဲ့…")
+                # instead of three chopped sentences in one line. A
+                # merely terse (grammatically closed) line keeps its "။".
+                base = (prev_text.rstrip("။") if prev_frag and self.lang == "my"
+                        else prev_text)
+                joined = f"{base} {str(d.get('text', '')).strip()}".strip()
                 window = float(d.get("end", 0.0)) - float(prev.get("start", 0.0))
-                if (prev_text and (not sentence_complete(prev_text, self.lang)
+                if (prev_text and (prev_frag
                                    or line_is_terse(prev_text, prev_window, self.lang))
                         and gap <= 1.5 and 0 < window <= 16.0
                         and estimate_speech_seconds(joined, self.lang) <= window * 1.35):
