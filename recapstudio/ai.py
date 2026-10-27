@@ -945,6 +945,19 @@ def find_gaps(dialogues: list[dict], duration: float, min_gap: float,
     return gaps
 
 
+def _big_dubbing_gaps(quiet: list[dict], threshold: float = 8.0,
+                      cap: int = 6) -> list[dict]:
+    """Gaps worth re-analysing for dubbing, longest first.
+
+    A gap longer than the threshold is usually a missed exchange, not a
+    natural pause — the model hears the actual video for the region and
+    returns nothing if it is genuinely silent, so the only cost of a
+    lower threshold is extra analysis calls (hence the cap).
+    """
+    return sorted([g for g in quiet if g["end"] - g["start"] > threshold],
+                  key=lambda g: g["start"] - g["end"])[:cap]
+
+
 # ── sentence completeness (Burmese fragments are the #1 quality killer) ──
 #: endings that CLOSE a Burmese sentence (finite verb / final particle)
 _MY_COMPLETE_SUFFIXES = (
@@ -1301,17 +1314,18 @@ class TimelineExtractor:
         """
         if self.fill_mode != "continuous":
             # 🎭 Dialogue dubbing: only real speech is dubbed — never fill
-            # quiet parts with invented narration. BUT a long hole usually
+            # quiet parts with invented narration. BUT a hole usually
             # means the model skipped speech, so re-analyse big holes
-            # (>20s, up to 6, longest first) against the actual video,
-            # exactly like recap does: if the region is genuinely silent
+            # against the actual video: if the region is genuinely silent
             # the model returns nothing and the hole stays silent,
-            # correctly. This is what makes a dub complete start-to-finish
-            # instead of leaving 60s+ holes the user must discover.
+            # correctly. v1.22: threshold 20s → 8s — the owner's scripts
+            # show many 7–13s holes where characters are audibly speaking
+            # (e.g. 13s, 8.7s, 7.9s gaps in one 180s passage), and 20s
+            # caught none of them; shorter gaps are usually natural
+            # pauses between turns. Up to 6, longest first, bounds cost.
             quiet = find_gaps(dialogues, duration, 3.0)
             longest = max((g["end"] - g["start"] for g in quiet), default=0.0)
-            big = sorted([g for g in quiet if g["end"] - g["start"] > 20.0],
-                         key=lambda g: g["start"] - g["end"])[:6]
+            big = _big_dubbing_gaps(quiet)
             region_lines: list[dict] = []
             if big and self.client is not None and not self.demo:
                 for gap in big:

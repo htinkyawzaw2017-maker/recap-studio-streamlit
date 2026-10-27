@@ -581,6 +581,18 @@ ok(len(_dup) == 7 and _dup[0]["speaker"] == "Woman"
    and sum(1 for d in _dup if "နယ်မြေကို ကာကွယ်မယ်" in d["text"]) == 2,
    "near-duplicate long lines in one passage dropped, short chants and far repeats kept")
 
+# ── v1.22: dubbing holes of 7–13s get re-analysed, not just >20s ───
+from recapstudio.ai import _big_dubbing_gaps
+_gaps = _big_dubbing_gaps([
+    {"start": 14.63, "end": 27.63},   # 13.0s — selected
+    {"start": 56.63, "end": 64.04},   # 7.4s — under threshold, left alone
+    {"start": 95.63, "end": 104.33},  # 8.7s — selected
+    {"start": 135.53, "end": 143.43},  # 7.9s — under threshold, left alone
+    {"start": 42.43, "end": 107.15},  # 64.7s — the big hole, first
+])
+ok([round(g["start"], 2) for g in _gaps] == [42.43, 14.63, 95.63],
+   "dubbing re-analysis picks 8s+ holes longest-first, skips short pauses")
+
 # ── v1.11: project persistence — refresh must not reset to step 1 ─────
 import tempfile as _tf
 from pathlib import Path as _Pl
