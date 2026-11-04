@@ -33,7 +33,7 @@ def code(text):
 
 cells = []
 
-cells.append(md('''# 🎬 Recap Dubbing — easy version (v2.2)
+cells.append(md('''# 🎬 Recap Dubbing — easy version (v2.3)
 
 **Flow:** Video ingest → Whisper Turbo GPU transcription → Gemini translates the *text only* into natural spoken Myanmar → Edge-TTS → Pydub timeline mix → GPU render (NVENC + flip + color + pure voice) → 9:16 Shorts + Telegram send.
 
@@ -66,7 +66,13 @@ subprocess.run(["wget", "-q",
 sys.path.insert(0, "/content")
 import recap_pipe as rp
 print("=== GPU ===")
-subprocess.run(["nvidia-smi", "-L"])
+# v2.3: nvidia-smi does not exist on CPU-only runtimes — never let this
+# check crash the whole setup. torch.cuda below is the real GPU test.
+import shutil
+if shutil.which("nvidia-smi"):
+    subprocess.run(["nvidia-smi", "-L"])
+else:
+    print("no nvidia-smi — this runtime has no NVIDIA GPU (CPU runtime?).")
 import torch
 print("torch cuda available:", torch.cuda.is_available())
 print("video encoder:", rp.pick_encoder(), "(NVENC falls back to libx264 automatically if no GPU)")
