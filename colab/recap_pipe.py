@@ -30,10 +30,19 @@ __all__ = [
 
 # ── helpers ──────────────────────────────────────────────────────────
 def probe_duration(path):
+    # v2.4: fail loudly instead of a cryptic KeyError when ffprobe cannot
+    # read the file (missing path, corrupt/unsupported upload).
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"video file not found: {path}")
     out = subprocess.run(
         ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", path],
         capture_output=True, text=True).stdout
-    return float(json.loads(out)["format"]["duration"])
+    data = json.loads(out) if out.strip() else {}
+    if "format" not in data or "duration" not in data["format"]:
+        raise RuntimeError(
+            f"ffprobe could not read this video: {path} "
+            "(file may be corrupt or in an unsupported format)")
+    return float(data["format"]["duration"])
 
 
 def srt_ts(sec):

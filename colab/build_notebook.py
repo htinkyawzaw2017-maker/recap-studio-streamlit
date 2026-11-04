@@ -33,7 +33,7 @@ def code(text):
 
 cells = []
 
-cells.append(md('''# 🎬 Recap Dubbing — easy version (v2.3)
+cells.append(md('''# 🎬 Recap Dubbing — easy version (v2.4)
 
 **Flow:** Video ingest → Whisper Turbo GPU transcription → Gemini translates the *text only* into natural spoken Myanmar → Edge-TTS → Pydub timeline mix → GPU render (NVENC + flip + color + pure voice) → 9:16 Shorts + Telegram send.
 
@@ -103,8 +103,16 @@ WORK = "/content/work"
 os.makedirs(WORK, exist_ok=True)
 if VIDEO_SOURCE == "upload":
     from google.colab import files
+    import shutil
     up = files.upload()
-    SRC = os.path.join(WORK, list(up.keys())[0])
+    # v2.4 fix: files.upload() saves into the notebook's cwd (/content),
+    # NOT into WORK. Move it into WORK, or probe_duration hits a missing
+    # file and ffprobe's empty JSON surfaces as a cryptic KeyError.
+    name = list(up.keys())[0]
+    uploaded = os.path.join("/content", name)
+    SRC = os.path.join(WORK, name)
+    if os.path.abspath(uploaded) != os.path.abspath(SRC):
+        shutil.move(uploaded, SRC)
 else:
     assert YOUTUBE_URL and YOUTUBE_URL.startswith("http"), "Paste a real YouTube link in the form, or switch VIDEO_SOURCE to upload."
     SRC = rp.download_youtube(YOUTUBE_URL, WORK)
