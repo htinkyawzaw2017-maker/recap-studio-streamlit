@@ -33,7 +33,7 @@ def code(text):
 
 cells = []
 
-cells.append(md('''# 🎬 Recap Dubbing — easy version (v2.4)
+cells.append(md('''# 🎬 Recap Dubbing — easy version (v2.5)
 
 **Flow:** Video ingest → Whisper Turbo GPU transcription → Gemini translates the *text only* into natural spoken Myanmar → Edge-TTS → Pydub timeline mix → GPU render (NVENC + flip + color + pure voice) → 9:16 Shorts + Telegram send.
 
@@ -53,10 +53,14 @@ cells.append(code('''import subprocess, sys
 print("=== install ===")
 subprocess.run(["pip", "install", "-q", "faster-whisper", "google-genai",
                 "edge-tts", "pydub", "yt-dlp", "requests", "gradio"], check=True)
-# v2.1 fix: faster-whisper calls av.open(..., metadata_errors=...) but an
-# older PyAV lacks that argument -> TypeError at transcribe time. Force both
-# to their latest compatible versions together.
-subprocess.run(["pip", "install", "-q", "-U", "av", "faster-whisper"], check=True)
+# v2.5 fix — CORRECTS v2.1, which had it backwards: PyAV 19 (released
+# 2026-09-29) REMOVED the metadata_errors argument from av.open(), while
+# faster-whisper 1.2.1 still passes it — so av 19 + faster-whisper ALWAYS
+# fails at transcribe with TypeError. Upgrading av made it worse. Pin av<19
+# (18.x works); pip downgrades an installed av 19 automatically. A runtime
+# restart is still required after this, since the old av stays loaded in
+# the kernel otherwise.
+subprocess.run(["pip", "install", "-q", "av<19", "faster-whisper"], check=True)
 import av
 print("av version:", av.__version__)
 print("=== pipeline module ===")
