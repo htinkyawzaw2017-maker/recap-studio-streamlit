@@ -75,6 +75,24 @@ def extract_audio(src, work):
 
 # ── 2. Whisper transcription ─────────────────────────────────────────
 def transcribe(audio, model_name="large-v3-turbo", language=None):
+    # v2.6 one-go fix: PyAV 19 removed the metadata_errors argument that
+    # faster-whisper 1.2.1 still passes, so transcribe dies on av 19 no
+    # matter what setup installed. Instead of depending on the installed
+    # av version, strip the kwarg at runtime: PyAV 19 reads metadata as
+    # UTF-8/surrogateescape unconditionally, so dropping it loses nothing.
+    # This makes transcribe work on av 18 AND av 19, in any session, with
+    # no restart and no pip change.
+    try:
+        import av as _av
+        if int(str(_av.__version__).split(".")[0]) >= 19 and not getattr(_av, "_rp_open_patched", False):
+            _orig_open = _av.open
+            def _open_compat(*args, **kwargs):
+                kwargs.pop("metadata_errors", None)
+                return _orig_open(*args, **kwargs)
+            _av.open = _open_compat
+            _av._rp_open_patched = True
+    except Exception:
+        pass
     from faster_whisper import WhisperModel
     try:
         import torch
