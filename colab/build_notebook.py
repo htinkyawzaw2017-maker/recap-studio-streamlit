@@ -33,7 +33,7 @@ def code(text):
 
 cells = []
 
-cells.append(md('''# 🎬 Recap Dubbing — easy version (v2)
+cells.append(md('''# 🎬 Recap Dubbing — easy version (v2.1)
 
 **Flow:** Video ingest → Whisper Turbo GPU transcription → Gemini translates the *text only* into natural spoken Myanmar → Edge-TTS → Pydub timeline mix → GPU render (NVENC + flip + color + pure voice) → 9:16 Shorts + Telegram send.
 
@@ -53,6 +53,12 @@ cells.append(code('''import subprocess, sys
 print("=== install ===")
 subprocess.run(["pip", "install", "-q", "faster-whisper", "google-genai",
                 "edge-tts", "pydub", "yt-dlp", "requests", "gradio"], check=True)
+# v2.1 fix: faster-whisper calls av.open(..., metadata_errors=...) but an
+# older PyAV lacks that argument -> TypeError at transcribe time. Force both
+# to their latest compatible versions together.
+subprocess.run(["pip", "install", "-q", "-U", "av", "faster-whisper"], check=True)
+import av
+print("av version:", av.__version__)
 print("=== pipeline module ===")
 subprocess.run(["wget", "-q",
                 "https://raw.githubusercontent.com/htinkyawzaw2017-maker/recap-studio-streamlit/main/colab/recap_pipe.py",
