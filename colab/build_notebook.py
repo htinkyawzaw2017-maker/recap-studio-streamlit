@@ -33,7 +33,7 @@ def code(text):
 
 cells = []
 
-cells.append(md('''# 🎬 Recap Dubbing — easy version (v2.1)
+cells.append(md('''# 🎬 Recap Dubbing — easy version (v2.2)
 
 **Flow:** Video ingest → Whisper Turbo GPU transcription → Gemini translates the *text only* into natural spoken Myanmar → Edge-TTS → Pydub timeline mix → GPU render (NVENC + flip + color + pure voice) → 9:16 Shorts + Telegram send.
 
@@ -206,6 +206,16 @@ This cell starts a small web UI and prints a public link. Open that link from yo
 
 cells.append(code('''import gradio as gr
 from google.colab import userdata
+# v2.2 self-heal: the setup cell downloads recap_pipe.py into /content, but a
+# fresh/restarted session wipes /content. If this cell runs before setup,
+# fetch the module here so the UI still starts (heavy deps still need setup).
+import os, subprocess, sys
+if not os.path.exists("/content/recap_pipe.py"):
+    print("recap_pipe.py missing (fresh session?) — downloading it now...")
+    subprocess.run(["wget", "-q",
+                    "https://raw.githubusercontent.com/htinkyawzaw2017-maker/recap-studio-streamlit/main/colab/recap_pipe.py",
+                    "-O", "/content/recap_pipe.py"], check=True)
+sys.path.insert(0, "/content")
 import recap_pipe as rp
 
 def ui_run(video_file, youtube_url, voice, make_shorts):
