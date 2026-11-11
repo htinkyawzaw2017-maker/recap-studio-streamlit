@@ -39,7 +39,7 @@ def code(text):
 
 cells = []
 
-cells.append(md('''# 🎬 Recap Dubbing — Kaggle version (v1.0)
+cells.append(md('''# 🎬 Recap Dubbing — Kaggle version (v1.1)
 
 **Flow:** Video ingest → Whisper Turbo GPU transcription → Gemini translates the *text only* into natural spoken Myanmar → Edge-TTS → Pydub timeline mix → GPU render → 9:16 Shorts + Telegram send.
 
@@ -270,6 +270,34 @@ with gr.Blocks(title="Recap Dubbing") as demo:
               [out_main, out_shorts, log])
 demo.launch(share=True)
 '''.replace("PIPE_URL_PLACEHOLDER", PIPE_URL)))
+
+cells.append(md('''## 🖥️ Use this notebook as a LOCAL backend (optional)
+Don't want to run the pipeline inside this notebook? Use the GPU as a private API your Mac calls directly — upload a video, get the dubbed MP4 back, all from your local terminal.
+
+1. Run the cell below — it prints a `https://*.trycloudflare.com` URL and a token.
+2. On your Mac, grab [`local_dub.py`](https://raw.githubusercontent.com/htinkyawzaw2017-maker/recap-studio-streamlit/main/colab/local_dub.py) from the repo, `pip3 install requests`, then:
+   ```
+   python3 local_dub.py myvideo.mp4 --server https://YOUR-URL --token YOUR_TOKEN
+   ```
+Keep this cell running while you send jobs. The URL is fresh each session.
+'''))
+
+cells.append(code('''import os, subprocess, sys
+if not os.path.exists("/kaggle/working/gpu_server.py"):
+    subprocess.run(["wget", "-q",
+        "https://raw.githubusercontent.com/htinkyawzaw2017-maker/"
+        "recap-studio-streamlit/main/colab/gpu_server.py",
+        "-O", "/kaggle/working/gpu_server.py"], check=True)
+# Change MY_TOKEN to your own secret — local_dub.py must send the same token.
+MY_TOKEN = "recap-secret-123"
+# GEMINI_API_KEY must be in env for the server's /dub endpoint.
+from kaggle_secrets import UserSecretsClient
+try:
+    os.environ["GEMINI_API_KEY"] = UserSecretsClient().get_value("GEMINI_API_KEY")
+except Exception:
+    pass
+!python /kaggle/working/gpu_server.py --token "$MY_TOKEN"
+'''))
 
 cells.append(md('''## ⚠️ Honest limits (Kaggle)
 - **GPU quota: 30 hours/week.** A ~10-minute video ≈ 5–10 GPU-minutes, so this is plenty for personal use; watch the quota meter on your profile.

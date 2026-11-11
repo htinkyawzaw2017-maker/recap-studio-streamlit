@@ -304,12 +304,16 @@ def synthesize(dub, voice, clips_dir, retries=4):
 def mix_and_srt(dub, clips_dir, duration, src, mute_original, work):
     from pydub import AudioSegment
 
-    # v2.7: match Edge-TTS output (24 kHz mono). The default 11025 Hz
-    # silent bed made pydub resample every clip down to 11 kHz (muffled,
-    # not mute, but poor). 24 kHz keeps the voice clean.
+    # v2.9 fix — OVERLAP (အသံထပ် / double-voice) bug: Myanmar lines often run
+    # longer than their Whisper window, so clip N bled past clip N+1's start
+    # and the two voices overlaid → muddy "double audio". Now each clip is
+    # trimmed to end just before the next segment's start (with a short fade)
+    # so only ONE voice ever sounds at a time → clear single narration.
     mix = AudioSegment.silent(duration=int(duration * 1000), frame_rate=24000)
     srt = []
     added = 0
+    dur_ms = int(duration * 1000)
+    GAP_MS = 60  # small breath between lines
     for i, d in enumerate(dub):
         p = os.path.join(clips_dir, f"{i:04d}.mp3")
         if not os.path.exists(p):
@@ -320,7 +324,21 @@ def mix_and_srt(dub, clips_dir, duration, src, mute_original, work):
             # v2.8: a corrupt/partial clip used to kill the whole mix; skip it
             print(f"[mix] clip {i} unreadable ({e}) — skipping")
             continue
-        mix = mix.overlay(clip, position=int(d["start"] * 1000))
+        start_ms = max(0, int(d["start"] * 1000))
+        # window ends right before the NEXT segment's start (or the video end)
+        next_start = None
+        for j in range(i + 1, len(dub)):
+            if os.path.exists(os.path.join(clips_dir, f"{j:04d}.mp3")):
+                next_start = int(dub[j]["start"] * 1000)
+                break
+        window_end = next_start if next_start is not None else dur_ms
+        max_len = max(200, window_end - start_ms - GAP_MS)
+        if len(clip) > max_len:
+            # too long for its window — trim with a soft fade so it doesn't
+            # chop mid-syllable or run under the next line.
+            clip = clip[:max_len].fade_out(120)
+            print(f"[mix] clip {i} trimmed to {max_len/1000:.2f}s to avoid overlap")
+        mix = mix.overlay(clip, position=start_ms)
         srt.append(f"{i + 1}\n{srt_ts(d['start'])} --> {srt_ts(d['end'])}\n{d['text']}\n")
         added += 1
     # v2.7 safety net: never export a silent dub track (the mute-video bug).
