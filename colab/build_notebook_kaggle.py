@@ -244,29 +244,32 @@ sys.path.insert(0, "/kaggle/working")
 import recap_pipe as rp
 from kaggle_secrets import UserSecretsClient
 
-def ui_run(video_file, youtube_url, voice, make_shorts):
+def ui_run(video_file, youtube_url, voice, wmodel, make_shorts):
     try:
         api_key = UserSecretsClient().get_value("GEMINI_API_KEY")
     except Exception:
         api_key = None
     main, shorts, log = rp.run_all(
         video_file=video_file, youtube_url=youtube_url, voice=voice,
+        whisper_model=wmodel,
         make_shorts_flag=make_shorts, api_key=api_key,
         work="/kaggle/working/work_ui")
     return main, shorts, log
 
 with gr.Blocks(title="Recap Dubbing") as demo:
-    gr.Markdown("Upload a video OR paste a YouTube URL, pick a voice, press Run dubbing.")
+    gr.Markdown("Upload a video OR paste a YouTube URL, pick a voice + Whisper model, press Run dubbing.")
     video_file = gr.File(label="Video file (leave empty if using a URL)")
     youtube_url = gr.Textbox(label="YouTube URL (optional)")
     voice = gr.Dropdown(["my-MM-NilarNeural", "my-MM-ThihaNeural"],
                         value="my-MM-NilarNeural", label="Voice")
+    wmodel = gr.Dropdown(["large-v3-turbo", "medium", "small"],
+                         value="large-v3-turbo", label="Whisper model")
     make_shorts = gr.Checkbox(value=True, label="Also make 9:16 Shorts")
     btn = gr.Button("Run dubbing")
     out_main = gr.Video(label="Dubbed video")
     out_shorts = gr.Video(label="9:16 Shorts")
     log = gr.Textbox(label="Status")
-    btn.click(ui_run, [video_file, youtube_url, voice, make_shorts],
+    btn.click(ui_run, [video_file, youtube_url, voice, wmodel, make_shorts],
               [out_main, out_shorts, log])
 demo.launch(share=True)
 '''.replace("PIPE_URL_PLACEHOLDER", PIPE_URL)))

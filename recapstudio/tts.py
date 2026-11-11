@@ -524,25 +524,66 @@ class TTSEngine:
                 tmp_cache.unlink(missing_ok=True)
             return line.index, produced
 
-        with ThreadPoolExecutor(max_workers=self.workers, thread_name_prefix="tts") as pool:
-            futures = [pool.submit(synth_one, line) for line in planned]
-            for future in as_completed(futures):
+        def run_wave(worker_count: int, lines) -> None:
+            nonlocal done
+            with ThreadPoolExecutor(max_workers=worker_count,
+                                    thread_name_prefix="tts") as pool:
+                futures = [pool.submit(synth_one, line) for line in lines]
+                for future in as_completed(futures):
+                    if cancel and cancel():
+                        for f in futures:
+                            f.cancel()
+                        raise CancelledError("အလုပ်ကို ရပ်တန့်လိုက်ပါပြီ")
+                    try:
+                        idx, path = future.result()
+                    except Exception as exc:
+                        log.warning("tts worker failed: %s", exc)
+                        continue
+                    if path is not None:
+                        clips[idx] = path
+                    done += 1
+                    if progress:
+                        progress(2 + (done / total) * 78,
+                                 f"🎙️ အသံသွင်းပြီး {done}/{total} လိုင်း "
+                                 f"({human_time(duration * (done / total))} / {human_time(duration)})")
+
+        # First pass: parallel, for speed.
+        run_wave(self.workers, planned)
+
+        # v1.4.2 fix — "all lines failed" is almost always Microsoft's
+        # edge-tts throttling a parallel burst (tts_workers=8 opens 8
+        # websockets at once and speech.platform.bing.com drops them all).
+        # If the parallel wave produced little/no audio, re-run the missing
+        # lines SERIALLY (1 worker) with a settle delay — a single polite
+        # connection is what actually clears the throttle and recovers the
+        # batch instead of returning a mute video.
+        # Retry lines that produced no clip — skipped ones too, since the
+        # "failure" was almost certainly the throttle, not the text.
+        missing = [ln for ln in planned if ln.index not in clips]
+        if self.workers > 1 and len(clips) < max(1, total // 4):
+            log.warning("parallel TTS produced %d/%d lines — retrying serially "
+                        "(edge-tts likely throttled the burst)", len(clips), total)
+            if progress:
+                progress(80, "⚠️ Parallel အသံသွင်း throttle ခံရသလား — "
+                             "တစ်ခုချင်း ပြန်စမ်းနေပါသည်…")
+            import time as _time
+            _time.sleep(2)
+            for ln in missing:  # serial, one polite connection
                 if cancel and cancel():
-                    for f in futures:
-                        f.cancel()
                     raise CancelledError("အလုပ်ကို ရပ်တန့်လိုက်ပါပြီ")
+                ln.skipped = False
+                ln.reason = ""
                 try:
-                    idx, path = future.result()
+                    idx, path = synth_one(ln)
+                    if path is not None:
+                        clips[idx] = path
                 except Exception as exc:
-                    log.warning("tts worker failed: %s", exc)
-                    continue
-                if path is not None:
-                    clips[idx] = path
-                done += 1
+                    log.warning("serial tts retry failed for line %d: %s",
+                                ln.index, exc)
                 if progress:
-                    progress(2 + (done / total) * 78,
-                             f"🎙️ အသံသွင်းပြီး {done}/{total} လိုင်း "
-                             f"({human_time(duration * (done / total))} / {human_time(duration)})")
+                    progress(80 + ((ln.index + 1) / total) * 15,
+                             f"🎙️ ပြန်စမ်းနေပါသည် {ln.index + 1}/{total}")
+                _time.sleep(0.4)  # small gap so bing doesn't re-throttle
 
         skipped = [line for line in planned if line.skipped or line.index not in clips]
         if skipped and not clips:

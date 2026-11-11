@@ -163,6 +163,7 @@ SS.setdefault("outputs", None)       # render results
 SS.setdefault("logs", [])
 SS.setdefault("busy", False)         # a long job is running → lock buttons
 SS.setdefault("project_id", "")      # ?project=… in the URL (v1.11)
+SS.setdefault("_keys_loaded", False) # localStorage keys already restored?
 BUSY = bool(SS.get("busy"))
 
 
@@ -253,11 +254,23 @@ except Exception:
 
 
 def _load_persisted_keys() -> None:
-    if _lstore is None or SS["keys"]:
+    if _lstore is None:
         return
-    # the component needs a run or two to hand the value back; after a few
-    # attempts stop asking so a misbehaving browser can never stall the app
-    if SS.get("_ls_attempts", 0) >= 3:
+    # streamlit_local_storage is an async component: it returns None for the
+    # first few script runs until it hands the stored value back. The old
+    # code gave up after 3 attempts, so on a busy page the value never
+    # arrived and the user's saved keys appeared to "vanish" on refresh.
+    # Keep asking each run until we get a value (or a generous cap), and
+    # re-push the in-session keys back to storage so they can't be lost.
+    loaded = bool(SS["_keys_loaded"])
+    if SS["keys"]:
+        # Keys already in session — make sure storage has them too so a
+        # future refresh restores them (belt & suspenders).
+        if not loaded:
+            _persist_keys()
+            SS["_keys_loaded"] = True
+        return
+    if SS.get("_ls_attempts", 0) >= 25:
         return
     SS["_ls_attempts"] = SS.get("_ls_attempts", 0) + 1
     try:
@@ -266,6 +279,7 @@ def _load_persisted_keys() -> None:
         saved = None
     if saved:
         SS["keys"] = [k.strip() for k in str(saved).splitlines() if k.strip()]
+        SS["_keys_loaded"] = True
 
 
 def _persist_keys() -> None:

@@ -143,7 +143,10 @@ class Settings:
     coverage_repair_rounds: int = _env_int("RECAP_COVERAGE_REPAIR_ROUNDS", 2)
 
     # ── TTS ───────────────────────────────────────────────────────────────
-    tts_workers: int = _env_int("RECAP_TTS_WORKERS", 8)
+    # 8 parallel websockets tripped Microsoft's edge-tts throttle → a whole
+    # batch of "all lines failed". 4 is fast enough and far less likely to
+    # be dropped; the serial fallback in build_narration covers the rest.
+    tts_workers: int = _env_int("RECAP_TTS_WORKERS", 4)
     tts_retries: int = _env_int("RECAP_TTS_RETRIES", 3)
     max_tempo: float = _env_float("RECAP_MAX_TEMPO", 1.6)
     max_lag_seconds: float = _env_float("RECAP_MAX_LAG", 0.35)
