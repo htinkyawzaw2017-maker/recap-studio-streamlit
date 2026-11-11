@@ -58,16 +58,56 @@ def pick_encoder():
 
 
 # ── 1. ingest ────────────────────────────────────────────────────────
-def download_youtube(url, work):
-    src = os.path.join(work, "source.mp4")
-    subprocess.run(["yt-dlp", "-f",
-                    "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best",
-                    "-o", src, url], check=True)
-    return src
+def download_youtube(url, work, retries=3):
+    """Download to work/source.<ext>, returning the real file path.
+
+    v2.8: this used to hardcode -o source.mp4, but yt-dlp writes the merged
+    container it actually got (sometimes .mkv/.webm when no mp4 is offered),
+    so probe_duration then hit a missing file. Now we detect the produced
+    file whatever its extension, and retry on transient yt-dlp failures.
+    """
+    import glob
+    import time
+
+    # clear stale outputs so we detect this run's real file
+    for old in glob.glob(os.path.join(work, "source.*")):
+        try:
+            os.remove(old)
+        except OSError:
+            pass
+    template = os.path.join(work, "source.%(ext)s")
+    last_err = None
+    for attempt in range(retries):
+        try:
+            subprocess.run(
+                ["yt-dlp", "-f",
+                 "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best",
+                 "--merge-output-format", "mp4",
+                 "-o", template, url], check=True)
+            produced = [p for p in glob.glob(os.path.join(work, "source.*"))
+                        if not p.endswith(".part")]
+            if produced:
+                return produced[0]
+            last_err = RuntimeError("yt-dlp finished but produced no source.* file")
+        except subprocess.CalledProcessError as e:
+            last_err = e
+        if attempt < retries - 1:
+            time.sleep(2 * (attempt + 1))
+    raise RuntimeError(f"yt-dlp download failed after {retries} tries: {last_err}")
 
 
 def extract_audio(src, work):
     audio = os.path.join(work, "audio_16k.wav")
+    # v2.8: a source with NO audio stream makes ffmpeg exit non-zero with a
+    # cryptic message; probe for a stream first and say so plainly.
+    probe = subprocess.run(
+        ["ffprobe", "-v", "quiet", "-print_format", "json",
+         "-show_streams", "-select_streams", "a", src],
+        capture_output=True, text=True).stdout
+    if '"codec_type": "audio"' not in probe and '"codec_type":"audio"' not in probe:
+        raise RuntimeError(
+            "this video has no audio track to transcribe — "
+            "there is nothing to dub. Check the source.")
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", src,
                     "-vn", "-ac", "1", "-ar", "16000", audio], check=True)
     return audio
@@ -129,6 +169,8 @@ def translate(segments, api_key, model_name="gemini-2.5-flash-lite"):
     from google import genai
     if not api_key:
         raise ValueError("GEMINI_API_KEY is missing — add it in Colab Secrets.")
+    if not segments:
+        return []
     client = genai.Client(api_key=api_key)
     prompt = (
         "You are a Myanmar dubbing scriptwriter. Translate the transcript below into NATURAL SPOKEN MYANMAR for dubbing.\n"
@@ -137,13 +179,50 @@ def translate(segments, api_key, model_name="gemini-2.5-flash-lite"):
         "never invent new meaning; never merge two segments into one line; keep names as spoken. "
         "Return ONLY a JSON array of {start, end, text}.\n\n"
         + json.dumps(segments, ensure_ascii=False))
-    resp = client.models.generate_content(
-        model=model_name, contents=prompt,
-        config={"response_mime_type": "application/json"})
-    raw = resp.text.strip()
-    if raw.startswith("```"):  # defensive: strip code fences if added
-        raw = "\n".join(raw.splitlines()[1:-1])
-    return json.loads(raw)
+
+    # v2.8: Gemini can return None/empty (safety block, quota) or malformed /
+    # truncated JSON (max_output_tokens cut on long transcripts, stray code
+    # fences) — both used to crash with an opaque AttributeError/JSONDecodeError.
+    # Retry a few times, salvage a truncated trailing array element, and only
+    # raise a clear error if it still can't be parsed.
+    import time
+
+    last_err = None
+    for attempt in range(4):
+        try:
+            resp = client.models.generate_content(
+                model=model_name, contents=prompt,
+                config={"response_mime_type": "application/json"})
+            raw = (getattr(resp, "text", None) or "").strip()
+            if not raw:
+                raise RuntimeError("empty Gemini response (safety block or quota)")
+            if raw.startswith("```"):  # defensive: strip code fences if added
+                raw = "\n".join(raw.splitlines()[1:-1])
+            try:
+                dub = json.loads(raw)
+            except json.JSONDecodeError:
+                # salvage: drop the last, possibly truncated object in the array
+                cut = raw.rfind("},")
+                if cut > 0:
+                    dub = json.loads(raw[:cut + 1] + "]")
+                else:
+                    raise
+            if not isinstance(dub, list) or not dub:
+                raise RuntimeError("Gemini returned a non-list / empty dub script")
+            # keep only well-formed entries so downstream never hits a bad row
+            clean = [d for d in dub
+                     if isinstance(d, dict)
+                     and isinstance(d.get("start"), (int, float))
+                     and isinstance(d.get("end"), (int, float))
+                     and str(d.get("text", "")).strip()]
+            if not clean:
+                raise RuntimeError("Gemini dub script had no usable {start,end,text} rows")
+            return clean
+        except Exception as e:  # JSONDecodeError, empty response, AND API/quota errors
+            last_err = e
+            if attempt < 3:
+                time.sleep(2 * (attempt + 1))
+    raise RuntimeError(f"Gemini translation failed after retries: {last_err}")
 
 
 # ── 4. Edge-TTS ──────────────────────────────────────────────────────
@@ -200,12 +279,15 @@ def synthesize(dub, voice, clips_dir, retries=4):
 
     failed = []
     for i, d in enumerate(dub):
+        text = str(d.get("text", "")).strip()
+        if not text:  # edge-tts always fails on empty text — skip, don't retry
+            continue
         out = os.path.join(clips_dir, f"{i:04d}.mp3")
         ok = False
         last_err = ""
         for attempt in range(retries):
             try:
-                run_coro(synth(d["text"], out))
+                run_coro(synth(text, out))
                 if os.path.exists(out) and os.path.getsize(out) >= 500:
                     ok = True
                     break
@@ -214,7 +296,7 @@ def synthesize(dub, voice, clips_dir, retries=4):
                 last_err = str(e)[:120]
             time.sleep(1.5 * (attempt + 1))  # backoff: 1.5s, 3s, 4.5s
         if not ok:
-            failed.append((i, d["text"][:40], last_err))
+            failed.append((i, text[:40], last_err))
     return failed
 
 
@@ -232,7 +314,12 @@ def mix_and_srt(dub, clips_dir, duration, src, mute_original, work):
         p = os.path.join(clips_dir, f"{i:04d}.mp3")
         if not os.path.exists(p):
             continue
-        clip = AudioSegment.from_file(p)
+        try:
+            clip = AudioSegment.from_file(p)
+        except Exception as e:
+            # v2.8: a corrupt/partial clip used to kill the whole mix; skip it
+            print(f"[mix] clip {i} unreadable ({e}) — skipping")
+            continue
         mix = mix.overlay(clip, position=int(d["start"] * 1000))
         srt.append(f"{i + 1}\n{srt_ts(d['start'])} --> {srt_ts(d['end'])}\n{d['text']}\n")
         added += 1
@@ -326,10 +413,16 @@ def run_all(video_file=None, youtube_url="", voice="my-MM-NilarNeural",
         log.append(f"whisper ({device}, detected {detected}): {len(transcript)} segments")
         json.dump(transcript, open(os.path.join(work, "transcript.json"), "w"),
                   ensure_ascii=False, indent=1)
+        if not transcript:
+            raise RuntimeError(
+                "Whisper found no speech in this video — there is nothing to "
+                "dub. Is this a music/silent clip, or is LANGUAGE set wrong?")
         dub = translate(transcript, api_key, gemini_model)
         json.dump(dub, open(os.path.join(work, "dub_script.json"), "w"),
                   ensure_ascii=False, indent=1)
         log.append(f"gemini dub lines: {len(dub)}")
+        if not dub:
+            raise RuntimeError("Gemini returned no dub lines — cannot continue.")
         failed = synthesize(dub, voice, os.path.join(work, "clips"))
         log.append(f"tts ok: {len(dub) - len(failed)} / {len(dub)}"
                    + (f" (failed: {len(failed)})" if failed else ""))
