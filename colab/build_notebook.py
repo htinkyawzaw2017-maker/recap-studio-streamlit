@@ -33,7 +33,7 @@ def code(text):
 
 cells = []
 
-cells.append(md('''# 🎬 Recap Dubbing — easy version (v2.6)
+cells.append(md('''# 🎬 Recap Dubbing — easy version (v2.7)
 
 **Flow:** Video ingest → Whisper Turbo GPU transcription → Gemini translates the *text only* into natural spoken Myanmar → Edge-TTS → Pydub timeline mix → GPU render (NVENC + flip + color + pure voice) → 9:16 Shorts + Telegram send.
 
@@ -156,6 +156,12 @@ failed = rp.synthesize(DUB, VOICE, CLIPS)
 print(f"clips ok: {len(DUB) - len(failed)} / {len(DUB)}")
 for f in failed:
     print("FAILED:", f)
+# v2.7: a muted output almost always means every TTS clip failed (voice
+# error / rate-limit) and the mix went silent. Stop here instead of
+# rendering a muted video.
+assert not failed, \\
+    f"{len(failed)}/{len(DUB)} TTS clips failed for voice {VOICE} — " \\
+    "Burmese voiceover would be MUTE. Try the other voice or re-run this cell."
 '''))
 
 cells.append(code('''DUB_TRACK, SRT_PATH, n_srt = rp.mix_and_srt(

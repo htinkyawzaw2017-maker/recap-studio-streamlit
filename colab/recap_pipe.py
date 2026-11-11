@@ -130,11 +130,53 @@ def translate(segments, api_key, model_name="gemini-2.5-flash-lite"):
 
 
 # ── 4. Edge-TTS ──────────────────────────────────────────────────────
-def synthesize(dub, voice, clips_dir):
+def synthesize(dub, voice, clips_dir, retries=4):
+    """Synthesize every dub line to an mp3 clip.
+
+    v2.7: this used to swallow every failure into a `failed` list, so a
+    voice error / rate-limit / empty clip produced NO mp3s, the mix became
+    a silent WAV, and the final video had a muted audio track — the "video
+    fine but Burmese voice is mute" bug.
+
+    Root cause of the mute in the Gradio UI: run_all() runs inside
+    Gradio's event loop, and asyncio.run() cannot be called from a running
+    loop — it raised "RuntimeError: asyncio.run() cannot be called from a
+    running event loop" for EVERY clip, so nothing was ever synthesized.
+    Fixed by running the coroutine on a fresh loop in a worker thread,
+    which works both in plain notebook cells and inside Gradio.
+
+    Each line also retries with a backoff, and remaining failures are
+    reported so the caller can stop loudly instead of returning a muted
+    video.
+    """
     import asyncio
+    import threading
+    import time
+
     import edge_tts
 
     os.makedirs(clips_dir, exist_ok=True)
+
+    def run_coro(coro):
+        # asyncio.run() fails inside Gradio's running loop; a private
+        # loop in its own thread always works.
+        result = {}
+
+        def target():
+            loop = asyncio.new_event_loop()
+            try:
+                result["value"] = loop.run_until_complete(coro)
+            except BaseException as e:
+                result["error"] = e
+            finally:
+                loop.close()
+
+        t = threading.Thread(target=target)
+        t.start()
+        t.join()
+        if "error" in result:
+            raise result["error"]
+        return result["value"]
 
     async def synth(text, out):
         await edge_tts.Communicate(text, voice).save(out)
@@ -142,12 +184,20 @@ def synthesize(dub, voice, clips_dir):
     failed = []
     for i, d in enumerate(dub):
         out = os.path.join(clips_dir, f"{i:04d}.mp3")
-        try:
-            asyncio.run(synth(d["text"], out))
-            if os.path.getsize(out) < 500:
-                raise RuntimeError("empty audio")
-        except Exception as e:
-            failed.append((i, d["text"][:40], str(e)[:80]))
+        ok = False
+        last_err = ""
+        for attempt in range(retries):
+            try:
+                run_coro(synth(d["text"], out))
+                if os.path.exists(out) and os.path.getsize(out) >= 500:
+                    ok = True
+                    break
+                last_err = "empty/too-small audio"
+            except Exception as e:
+                last_err = str(e)[:120]
+            time.sleep(1.5 * (attempt + 1))  # backoff: 1.5s, 3s, 4.5s
+        if not ok:
+            failed.append((i, d["text"][:40], last_err))
     return failed
 
 
@@ -155,8 +205,12 @@ def synthesize(dub, voice, clips_dir):
 def mix_and_srt(dub, clips_dir, duration, src, mute_original, work):
     from pydub import AudioSegment
 
-    mix = AudioSegment.silent(duration=int(duration * 1000))
+    # v2.7: match Edge-TTS output (24 kHz mono). The default 11025 Hz
+    # silent bed made pydub resample every clip down to 11 kHz (muffled,
+    # not mute, but poor). 24 kHz keeps the voice clean.
+    mix = AudioSegment.silent(duration=int(duration * 1000), frame_rate=24000)
     srt = []
+    added = 0
     for i, d in enumerate(dub):
         p = os.path.join(clips_dir, f"{i:04d}.mp3")
         if not os.path.exists(p):
@@ -164,6 +218,12 @@ def mix_and_srt(dub, clips_dir, duration, src, mute_original, work):
         clip = AudioSegment.from_file(p)
         mix = mix.overlay(clip, position=int(d["start"] * 1000))
         srt.append(f"{i + 1}\n{srt_ts(d['start'])} --> {srt_ts(d['end'])}\n{d['text']}\n")
+        added += 1
+    # v2.7 safety net: never export a silent dub track (the mute-video bug).
+    if added == 0 and mute_original:
+        raise RuntimeError(
+            "no TTS clips were mixed — the Burmese voiceover would be MUTE. "
+            "Check the synthesize() output above.")
     if not mute_original:
         orig = AudioSegment.from_file(src) - 20  # original kept low under the dub
         mix = orig.overlay(mix)
@@ -256,6 +316,13 @@ def run_all(video_file=None, youtube_url="", voice="my-MM-NilarNeural",
         failed = synthesize(dub, voice, os.path.join(work, "clips"))
         log.append(f"tts ok: {len(dub) - len(failed)} / {len(dub)}"
                    + (f" (failed: {len(failed)})" if failed else ""))
+        if failed:
+            for f in failed:
+                log.append(f"  FAILED clip {f[0]}: {f[2]}")
+            raise RuntimeError(
+                f"{len(failed)}/{len(dub)} TTS clips failed for voice "
+                f"{voice} — the Burmese voiceover would be MUTE. "
+                "Try the other voice or run again.")
         dub_track, _, n_srt = mix_and_srt(
             dub, os.path.join(work, "clips"), duration, src, mute_original, work)
         log.append(f"mix + srt: {n_srt} lines")
