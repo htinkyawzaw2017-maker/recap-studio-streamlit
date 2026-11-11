@@ -3,7 +3,9 @@ streamlit>=1.40
 pandas>=2.0
 
 # ── Recap engine (from Recap Studio MM Pro v4.4) ──
-edge-tts>=6.1                  # free neural voices (my-MM Thiha/Nilar, en-US …)
+edge-tts>=7.3                  # free neural voices (my-MM Thiha/Nilar, en-US …)
+                               # >=7.3: older 7.2.x gets 403 from Microsoft's
+                               # updated speech endpoint (trusted-token change)
 google-genai>=1.20             # Gemini video understanding — >=1.20 required
 yt-dlp>=2024.8.6               # YouTube/TikTok link import
 Pillow>=10.2

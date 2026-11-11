@@ -588,11 +588,16 @@ class TTSEngine:
         skipped = [line for line in planned if line.skipped or line.index not in clips]
         if skipped and not clips:
             # Every single line failed: telling the user "some lines failed"
-            # here would be misleading, the video would be mute.
+            # here would be misleading, the video would be mute. A 403 from
+            # speech.platform.bing.com usually means the installed edge-tts
+            # is too old for Microsoft's current trusted-token scheme.
+            import edge_tts as _et
+            _ver = getattr(_et, "__version__", "?")
             raise RuntimeError(
                 f"အသံသွင်း၍ မရပါ (လိုင်း {len(skipped)} ခုလုံး မအောင်မြင်ပါ)။ "
-                "Server မှ Microsoft Edge TTS (speech.platform.bing.com) သို့ ချိတ်ဆက်နိုင်/မနိုင် စစ်ပါ "
-                "သို့မဟုတ် အခြား Narrator အသံကို ရွေးစမ်းပါ။"
+                f"edge-tts {_ver} — 403/handshake အမှား ဖြစ်နေရင် `pip install -U edge-tts` "
+                "(>=7.3 လိုအပ်ပါတယ်) နဲ့ အဆင့်မြှင့်ပြီး Streamlit ကို ပြန်စပါ။ "
+                "အင်တာနက် ချိတ်ဆက်မှု စစ်ပါ သို့မဟုတ် အခြား Narrator အသံ ရွေးစမ်းပါ။"
             )
         if skipped:
             warnings.append(f"အသံသွင်း၍ မရသော လိုင်း {len(skipped)} ခု (voice/network) - "
