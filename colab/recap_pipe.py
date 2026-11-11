@@ -96,15 +96,32 @@ def transcribe(audio, model_name="large-v3-turbo", language=None):
     from faster_whisper import WhisperModel
     try:
         import torch
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        want_cuda = torch.cuda.is_available()
     except Exception:
-        device = "cpu"
-    compute = "float16" if device == "cuda" else "int8"
-    model = WhisperModel(model_name, device=device, compute_type=compute)
-    segments, info = model.transcribe(audio, language=language, vad_filter=True)
-    transcript = [{"start": round(s.start, 2), "end": round(s.end, 2),
-                   "text": s.text.strip()} for s in segments if s.text.strip()]
-    return transcript, getattr(info, "language", "?"), device
+        want_cuda = False
+
+    # v2.8 fix: a Colab runtime can report cuda.is_available()=True yet have
+    # ctranslate2 fail to load libcublas.so.12 (driver/cuBLAS mismatch). When
+    # that happens the whole run died at transcribe. Try CUDA first, then
+    # retry once on CPU/int8 so the pipeline keeps working on any runtime.
+    attempts = [("cuda", "float16")] if want_cuda else []
+    attempts.append(("cpu", "int8"))
+
+    last_err = None
+    for device, compute in attempts:
+        try:
+            model = WhisperModel(model_name, device=device, compute_type=compute)
+            segments, info = model.transcribe(
+                audio, language=language, vad_filter=True)
+            transcript = [{"start": round(s.start, 2), "end": round(s.end, 2),
+                           "text": s.text.strip()}
+                          for s in segments if s.text.strip()]
+            return transcript, getattr(info, "language", "?"), device
+        except (RuntimeError, OSError) as e:
+            last_err = e
+            print(f"[transcribe] {device}/{compute} failed: {e} — "
+                  + ("trying cpu/int8" if device == "cuda" else "no fallback left"))
+    raise last_err
 
 
 # ── 3. Gemini text-only translation ──────────────────────────────────

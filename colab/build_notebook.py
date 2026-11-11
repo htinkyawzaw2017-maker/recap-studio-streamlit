@@ -33,7 +33,7 @@ def code(text):
 
 cells = []
 
-cells.append(md('''# 🎬 Recap Dubbing — easy version (v2.7)
+cells.append(md('''# 🎬 Recap Dubbing — easy version (v2.8)
 
 **Flow:** Video ingest → Whisper Turbo GPU transcription → Gemini translates the *text only* into natural spoken Myanmar → Edge-TTS → Pydub timeline mix → GPU render (NVENC + flip + color + pure voice) → 9:16 Shorts + Telegram send.
 
