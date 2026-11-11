@@ -212,8 +212,18 @@ class GeminiClient:
     def _apply_key(self, key: str, slot: int) -> None:
         self.api_key = key
         self.slot = slot
-        self._client = self.sdk.Client(api_key=key) if self.is_new else None  # type: ignore[union-attr]
-        if not self.is_new:
+        # v1.24 fix: google-genai 3.x defaults to API version "v1", which
+        # rejects response_schema/JSON mode with:
+        #   400: JSON mode is not enabled for api version v1. Use api
+        #        version v1beta instead.
+        # Pin the client to v1beta so JSON mode works on both 1.x and 3.x.
+        if self.is_new:
+            from google.genai import types as _gtypes
+            self._client = self.sdk.Client(
+                api_key=key,
+                http_options=_gtypes.HttpOptions(api_version="v1beta"))
+        else:
+            self._client = None
             self.sdk.configure(api_key=key)  # type: ignore[attr-defined]
 
     def rotate_key(self, error: Exception) -> bool:
