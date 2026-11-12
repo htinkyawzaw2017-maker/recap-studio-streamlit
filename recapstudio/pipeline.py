@@ -508,7 +508,8 @@ class RecapPipeline:
             duration = get_media_duration(input_video) or job.duration
             if fill_mode == "dialogue":
                 dialogues, _ = fit_lines_to_windows(
-                    dialogues, duration, payload.get("lang", "my"), respect_end=True)
+                    dialogues, duration, payload.get("lang", "my"), respect_end=True,
+                    condense=False)  # v1.26: never cut text — retime handles it
             info = get_video_info(input_video)
             work_dir = _job_workdir(job_id)
             ensure_disk_space(300 * 1024 * 1024)

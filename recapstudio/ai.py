@@ -626,7 +626,14 @@ def _chunk_prompt(chunk_start: float, chunk_end: float, target_language: str,
     selected_mode = fill_mode if fill_mode in FILL_MODE_PROMPTS else "continuous"
     if target_language == "my" and selected_mode == "continuous":
         voice_block = '''
+RECAP STORY STRUCTURE — HVC (owner demand 2026-11-12, မဖြိုချမရ):
+- ဇာတ်လမ်းတစ်ခုလုံးကို HVC အဆင့် ၃ ဆင့်နဲ့ ရေးပါ:
+  H — HOOK (အစ): ပထမ ၁၀-၁၅% မှာ ဇာတ်လမ်းရဲ့ အဓိက ပဋိပက္ခ/ရည်မှန်းချက် (ဘယ်သူက ဘာလိုချင်တယ်၊ မရရင် ဘာဖြစ်မယ်) ကို တန်းချရမည်။ hook_line1/hook_line2 က ဒီ H အပိုင်း ဖြစ်ရမည်။
+  V — JOURNEY/VALUE (အလယ်): ဇာတ်ကွက် အစဉ်လိုက် — ကြိုးပမ်းမှု၊ အတားအဆီး၊ လှည့်ကွက်၊ ဆုံးရှုံးမှု။ ဇာတ်အချက် တိုင်းကို မြင်ကွင်းအတိုင်း ဖော်ပြပြီး အရင်အဖြစ်နဲ့ နောက်အဖြစ် ဆက်စပ်ပါ။ ဒီအပိုင်းမှာ အချိန် ၇၀% သုံးရမည်။
+  C — CLIMAX + ENDING (အဆုံး): အနှစ်ချုပ် တိုက်ပွဲ/လှည့်ကွက် အပြီးသတ်၊ ဇာတ်ဆုံးသတ်ပုံ ရှင်းရှင်းလင်းလင်း ပြောပြီး ဇာတ်လမ်း ပြီးစေရမည်။ အဆုံး မဖြတ်တာမျိုး၊ "ဆက်ကြည့်ပါ" မျိုး လုံးဝ မသုံးရ။
+- ဇာတ်လမ်း အပိုင်းခွဲခြင်း (chunk) များ ရှိနေလည်း ဇာတ်အစီအစဉ် မှန်ရမည် — မိနစ်အလိုက် ကွက်တိ rule ကို လိုက်နာရမည်။
 RECAP VOICE — NON-NEGOTIABLE (မြန်မာ):
+- စာသား ရှည်နေရင်တောင် လုံးဝ အဓိပ္ပာယ် ဖြတ်မရေးရ — စာတိုသင်တာမျိုး မလုပ်ပါနဲ့။ မင်းရဲ့ တာဝန်က ဇာတ်လမ်း အပြည့်အစုံ ပြောပြဖို့ပဲဖြစ်ပြီး ရုပ်ရှင် တီးလုပ်သူက အသံအတွက် ရုပ်ကို နှေး/ရပ်ပေးမယ်။ (ဖြတ်တဲ့ အသံကို နားထောင်ရတာ မကောင်းလို့ပါ)။ ဒါပေမဲ့ PER-MINUTE EXACT FIT budget ထဲ အကုန်လုံး ဝင်အောင် ဖြန့်ရေးပါ — လိုင်း တစ်လိုင်းချင်းစီ ရှည်လွန်းရုံမျိုး မဖြစ်စေနဲ့။
 - လူပြော မြန်မာစကား စစ်စစ် (စကားပြော ဟန်) နဲ့ပဲ ရေးပါ။ စာအုပ်/ရုံးသုံး ဟန်၊ ဘာသာပြန် ဟန် လုံးဝ မသုံးရ။
 - ဘာသာပြန် မလုပ်ပါနဲ့ — ပြန်ပြောပါ: မူရင်း ဗီဒီယိုက အင်္ဂလိပ်လို (သို့ အခြား ဘာသာနဲ့) ပြောထားရင် စာကြောင်း တစ်ကြောင်းချင်းကို လိုက်ပြီး တိုက်ရိုက် ပြန်ခြင်း လုံးဝ မလုပ်ရ (အဲဒါက နားထောင်လို့ မကောင်းတဲ့ "တုံးတိ" ဘာသာပြန် ဖြစ်စေတယ်)။ အရင် အဖြစ်အပျက်ကို နားလည်ပါ၊ ပြီးမှ မြန်မာ ဇာတ်လမ်းပြောသူ တစ်ယောက် ကိုယ်ပိုင် စကားနဲ့ ပြန်ပြောသလို ရေးပါ။
 - လိုင်းတိုင်းသည် ပြီးပြည့်စုံတဲ့ ဝါကျ ဖြစ်ရမည် — အဆုံးမှာ "။" အမြဲ ပါရမည်။ အတွေးတပိုင်း၊ ကြိယာ မပါတဲ့ အပိုင်းအစ၊ စကားစပ် အဆတ်အပြတ် မရေးရ။
@@ -645,6 +652,8 @@ RECAP VOICE — NON-NEGOTIABLE (မြန်မာ):
     elif target_language == "my":
         voice_block = '''
 DUBBING VOICE — NON-NEGOTIABLE (မြန်မာ):
+- စာသား ရှည်နေရင် အဓိပ္ပာယ် ဖြတ်မပြန်ရ — မူရင်း ပြောခဲ့တဲ့ အကြောင်းအရာ အပြည့်အစုံ ပါစေ။ ရုပ်ရှင် တီးလုပ်သူက videos speed adjust လုပ်ပြီး ညီအောင် လုပ်ပေးမယ်။ (ဖြတ်ထားတဲ့ ဘာသာပြန်ကို နားထောင်ရတာ မကောင်းပါ။) ဒါပေမဲ့ မလိုအပ်တဲ့ ဖူ-title စကား မထည့်ရ — မူရင်း မှန်ကန်တဲ့ အကြောင်းအရာသာ။
+- မူရင်း ဗီဒီယိုမှာ မရှိတဲ့ အသံ/စကား/ဇာတ်ကွက် လုံးဝ မထည့်ရ — မြင်/ကြားရတဲ့ အရာသာ ပြန်ပါ။ မူရင်းမှာ မပါတဲ့ narration ဖန်တီးခြင်း တားမြစ်တယ်။
 - မူရင်း အဓိပ္ပာယ်ကို လူပြော မြန်မာစကား စစ်စစ်နဲ့ ပြန်ပါ — တိုက်ရိုက် ဘာသာပြန် (translationese) လုံးဝ မဖြစ်ရ။ မြန်မာတွေ တကယ် ပြောတဲ့ ပုံစံ၊ သဒ္ဒါ အစီအစဉ် မှန်မှန်။
 - ပြောသူရဲ့ စိတ်ခံစားမှု၊ အသံအနိမ့်အမြင့်၊ ရင်းနှီးမှု အဆင့် (ခင်မင်တဲ့ ပုံစံ/ရိုသေတဲ့ ပုံစံ) ကို ထိန်းထားပါ။
 - လိုင်းတိုင်းသည် သီးခြား ဖတ်ကြည့်ရင် ဝါကျအပြည့် ဖြစ်ရမည် — ကြိယာ အပြည့်အစုံ (ပါတယ်/တယ်/သည်/ခဲ့/ပြီ/လား) နဲ့ ဆုံးရမည်။ မူရင်းအလှည့် တစ်ခု = ဘာသာပြန်လိုင်း တစ်လိုင်း — အလှည့်တစ်ခုကို နှစ်လိုင်းခွဲမရေးရ၊ အလှည့်နှစ်ခုကို တစ်လိုင်းပေါင်းမရေးရ။ အဲဒီအလှည့်မှာ တကယ်ပြောခဲ့တာကို တိတိကျကျ၊ အပြည့်အစုံ ပြန်ပါ။
@@ -652,6 +661,11 @@ DUBBING VOICE — NON-NEGOTIABLE (မြန်မာ):
 - "…" / "..." နဲ့ လုံးဝ မဆုံးရ — ဖြတ်ထားတဲ့ စကားကို ဝါကျအပြည့် ဖြစ်အောင် ပြန်ပါ။'''
     elif selected_mode == "continuous":
         voice_block = '''
+RECAP STORY STRUCTURE — HVC (mandatory, 2026-11-12):
+- Write the whole recap in three HVC stages:
+  H — HOOK (opening ~10-15%): state the central conflict/goal immediately (who wants what, what happens if they fail). hook_line1/hook_line2 belong to this stage.
+  V — JOURNEY (middle ~70%): the plot beats in order — attempts, obstacles, twists, losses. Each beat matches what is visible on screen at that timestamp.
+  C — CLIMAX + ENDING (final ~15%): the decisive confrontation and a clear resolution. Never cut the ending short, never end with "keep watching".
 RECAP VOICE — NON-NEGOTIABLE:
 - Write like a real human recap narrator talking, not a summary writer. Every line must describe EXACTLY what is visible on screen in that moment — who, what action, where, what emotion. Never invent or generalise.
 - RETELL, never translate: if the source speaks another language, understand the beat and retell it in your own natural words. Sentence-by-sentence literal translation produces wooden, choppy narration and is banned. Every line must be one COMPLETE sentence with final punctuation — no fragments, no thoughts split across two lines. Merge related micro-facts into one flowing 5-10 second line instead of many 2-3 second scraps.
@@ -1879,9 +1893,10 @@ Rules:
                 raise
             except Exception as exc:
                 self.log(f"⚠️ minute-fit rewrite failed: {exc}")
-        # 2) deterministic clause cut — ONLY for extreme overruns (the AI
-        # rewrite keeps language natural; a hard cut is a last resort and
-        # was making mildly-long lines read like chopped fragments)
+        # 2) deterministic clause cut — v1.26 owner rule: cut text is WORSE
+        # than a slowed picture, so this now only fires on EXTREME overruns
+        # (>1.6x the window — even retime at 0.75x + freeze cannot carry it).
+        # Mild overruns rely on the AI rewrite above and the retime engine.
         for pos, max_chars in remaining.items():
             est = estimate_speech_seconds(str(lines[pos].get("text", "")), self.lang)
             if est <= window(lines[pos]) * 1.6:

@@ -137,14 +137,12 @@ def condense_line(text: str, seconds: float, lang: str = "my") -> tuple[str, boo
 
 
 def fit_lines_to_windows(dialogues: list[dict], duration: float,
-                         lang: str = "my", *, respect_end: bool = False) -> tuple[list[dict], int]:
-    """Condense every line that cannot be spoken calmly inside its window.
-
-    The window of a line ends where the next line starts (that is also how
-    :meth:`VoiceEngine.plan_lines` fits the audio), so this is the single
-    place where "too much text for the time available" is solved — for the
-    voice *and* the burned-in subtitle at once.
-    """
+                         lang: str = "my", *, respect_end: bool = False,
+                         condense: bool = True) -> tuple[list[dict], int]:
+    """Fit every line to its window. With ``condense=False`` (v1.26 owner
+    rule) lines are NEVER shortened — long text is handled by the retime
+    engine slowing/freezing the picture instead, because cut-off narration
+    is worse for the listener than a slightly slower scene."""
     ordered = sorted(
         [d for d in (dialogues or []) if str(d.get("text", "")).strip()],
         key=lambda d: float(d.get("start", 0.0) or 0.0),
@@ -156,11 +154,13 @@ def fit_lines_to_windows(dialogues: list[dict], duration: float,
         declared_end = float(item.get("end", nxt) or nxt)
         window_end = min(nxt, duration, declared_end) if respect_end else min(nxt, duration)
         window = max(0.4, window_end - start - 0.06)
-        if respect_end:
-            # Dubbing must preserve every source utterance. If translation or
-            # TTS cannot fit the actual speech interval, fail safely in the
-            # strict synthesis pass and ask for a human edit; never summarize
-            # or silently drop words to make the clock appear to fit.
+        if respect_end or not condense:
+            # Dubbing must preserve every source utterance, and (v1.26) recap
+            # lines are never cut either — the retime engine slows the picture
+            # to fit the full text instead. If translation or TTS cannot fit
+            # the interval, fail safely in the strict synthesis pass and ask
+            # for a human edit; never summarize or silently drop words to make
+            # the clock appear to fit.
             continue
         text, changed = condense_line(str(item.get("text", "")), window, lang)
         if changed:
