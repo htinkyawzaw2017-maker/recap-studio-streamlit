@@ -73,7 +73,8 @@ class Span:
 
 def compute_spans(windows: list[tuple[float, float, float, int]],
                   duration: float, *, tighten_pause: float | None = None,
-                  tighten_threshold: float = 1.2) -> list[Span]:
+                  tighten_threshold: float = 1.2,
+                  fps: float = 30.0) -> list[Span]:
     """Build spans covering ``[0, duration]`` of the source.
 
     ``windows`` are ``(src_start, src_end, speech_seconds, line_index)``
@@ -87,6 +88,15 @@ def compute_spans(windows: list[tuple[float, float, float, int]],
     scene starts right away. The voice then runs continuously while every
     line still sits on its own scene. (Dubbing passes ``None``: its
     timing must stay faithful to the source.)
+
+    ``fps`` (v1.27): every slot is snapped to a whole number of video
+    frames. ``retime_video`` renders each span through ``fps=30``, which
+    resamples the slowed picture to the frame grid — a 5.237s plan became
+    a 5.233s segment, and those half-frame errors ACCUMULATED across
+    every span boundary (about a second of drift over a long recap).
+    Snapping the plan itself to the same grid makes the audio timeline
+    and the rendered video land on identical boundaries, so they cannot
+    drift apart.
     """
     spans: list[Span] = []
     cursor = 0.0
@@ -119,6 +129,51 @@ def compute_spans(windows: list[tuple[float, float, float, int]],
             if keep < src_len:
                 span_end = start + keep
                 dropped = end - span_end
+        if fps > 0 and span_end > start:
+            import math as _m
+            real_len = span_end - start  # tightened spans drop the tail
+            # v1.27 frame-grid snapping: retime_video renders every span
+            # through fps=30 and tpad clones frames, so only whole frames
+            # exist. Snap the SOURCE cut and the slot to whole frames, or
+            # the plan and the render disagree by up to half a frame per
+            # span — which accumulated into seconds of A/V drift across a
+            # long recap.
+            #
+            # pic_len = the seconds of rendered picture (a whole frame
+            #   count). The source is trimmed to span_end = start+pic_len
+            #   at 1.0x, or played over pic_len frames when slowed
+            #   (speed = real_len/pic_len makes the rendered picture land
+            #   exactly on the grid while src_end keeps the true extent).
+            if speed < 0.999:
+                pic_frames = max(1, _m.floor(real_len / speed * fps))
+            else:
+                pic_frames = _m.floor(real_len * fps)
+            pic_len = pic_frames / fps
+            if speed < 0.999 and real_len / pic_len < 1.0:
+                # genuine slowdown: source extent is real_len, rendered over
+                # pic_len frames; slot = pic_len + freeze
+                speed = real_len / pic_len
+                span_end = start + real_len
+                slot_frames = max(pic_frames, _m.ceil(speech * fps - 1e-6))
+                freeze = max(0.0, slot_frames / fps - pic_len)
+            else:
+                # 1.0x (or a slowdown so mild it collapses to 1.0x): the
+                # rendered picture is the source trimmed to pic_len frames.
+                speed = 1.0
+                # dubbing (tighten_pause is None) keeps the source faithful —
+                # the whole real_len plays; only the recap drops tail frames.
+                faithful = tighten_pause is None and dropped <= 0
+                if faithful:
+                    span_end = start + real_len
+                else:
+                    span_end = start + pic_len
+                # slot must hold the full speech — freeze covers the tail
+                base = real_len if faithful else pic_len
+                slot_frames = max(_m.ceil(base * fps - 1e-6),
+                                  _m.ceil(speech * fps - 1e-6))
+                freeze = max(0.0, slot_frames / fps - base)
+                if dropped <= 0 and not faithful and slot_frames > pic_frames:
+                    dropped = end - span_end  # picture shorter than speech
         spans.append(Span(src_start=start, src_end=span_end, speech=speech,
                           line_index=line_index, speed=speed, freeze=freeze,
                           dropped=dropped))

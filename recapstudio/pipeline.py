@@ -303,6 +303,27 @@ class RecapPipeline:
                 stats["warnings"] = warnings
             if voice_stats.get("silent_windows"):
                 stats["silent_windows"] = voice_stats["silent_windows"]
+            # v1.27: measure the real per-line A/V drift on the rendered
+            # file and put the worst offenders in the job log + stats, so a
+            # "sync is off" report comes with numbers instead of a guess.
+            try:
+                from .sync_check import measure_drift
+                drift = measure_drift(output_path, dialogues,
+                                      narration_path=str(narration_mp3),
+                                      lang=payload.get("lang", "my"))
+                ds = drift["summary"]
+                stats["sync"] = ds
+                if ds["lines_over_1s"] or ds["lines_overflowing"]:
+                    store.log(job_id,
+                              f"📏 Sync: {ds['lines_over_1s']} lines >1s off, "
+                              f"{ds['lines_overflowing']} overflowing "
+                              f"(mean |drift| {ds['mean_abs_drift']}s, max {ds['max_drift']}s)")
+                else:
+                    store.log(job_id,
+                              f"📏 Sync ok: mean |drift| {ds['mean_abs_drift']}s, "
+                              f"max {ds['max_drift']}s")
+            except Exception as _drift_exc:
+                log.debug("sync check skipped: %s", _drift_exc)
             store.update(job_id,
                          status="completed", progress=100, stage="finalize",
                          output_video=config.rel(output_path),

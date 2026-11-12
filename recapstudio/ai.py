@@ -690,34 +690,37 @@ DUBBING VOICE — NON-NEGOTIABLE:
   the final scene near {chunk_end:.2f}s. No unexplained narration gap may exceed 4 seconds.
 - During quiet scenes, narrate the visible action and its story consequence. This is the only mode
   in which you should add connective narration.
-- Make each entry one concise, COMPLETE thought (a full sentence, never a fragment) with a
-  start/end window that can be spoken naturally. Prefer fewer, fuller lines of 5-10 seconds
-  over many tiny 2-3 second scraps about the same beat."""
+- ONE COMPLETE SENTENCE = ONE ENTRY. Never split a sentence across two entries, and never end an
+  entry on a particle or subordinate clause (နဲ့ / ပြီး / တုန်း / တဲ့ / ရင် / ကို / မှာ / ကြောင့် /
+  ဖို့ / လို့ / ရဲ့ / ဟာ / လည်း / သို့ / များ / ကာ / လျက် / သော / သည့် / စွာ / ချင်း / ရင်း).
+  Read each entry alone: if it is not a finished, stand-alone sentence ending in "။", it is WRONG —
+  rewrite it as one full sentence or merge it with its continuation.
+- TIMING: stamp each entry's start at the moment its beat is actually on screen, and its end when
+  that beat finishes. A 5–10 second spoken line should cover the seconds of picture it describes —
+  not a fixed cadence. Do NOT pad timestamps evenly; place them on the real visual changes.
+- Prefer fewer, fuller lines of 5-10 seconds over many tiny 2-3 second scraps about the same beat."""
     else:
         task_rules = f"""DIALOGUE DUB TIMELINE RULES
 - Return an entry ONLY for real speech audible in the source audio. A quiet interval is correct;
   never add a line to satisfy clip coverage.
-- Timestamp each utterance from the audio onset to audio offset using absolute full-video seconds.
-  Use separate entries for separate speaker turns or clear pauses; do not merge distant speech.
-- Translate EXACTLY what is spoken — one original turn = one translated entry, in speech order.
-  Do not summarize, retell, merge turns, or leave a turn half-translated; keep names, intent and
-  emotion, do not omit important information or add plot explanation.
-- One spoken utterance = one COMPLETE translated line, start to finish. Never end a line on a
-  dangling particle (က / တဲ့ / များ / တော့ / ကို / မှာ / ကြောင့် / ဖို့) — if the speaker's
-  sentence continues, keep translating until the sentence ends with a finished verb.
-- Label `speaker` with the character's name or role when identifiable — never the generic word
-  'Speaker' for every entry.
-- v1.25 GENDER TAG (mandatory in Dubbing mode): the `speaker` field MUST be exactly "MALE" or
-  "FEMALE" (capital letters) — judge by the VOICE you hear, not the appearance. A child, a
-  narrator, a crowd leader — tag by whether the voice sounds male or female. The dub engine
-  uses this tag to pick the matching gender voice for that line.
-- NEVER give two entries the same start time, and NEVER use the clip end or the full-video
-  duration as a timestamp — stamp each entry from its own audible onset/offset. If a boundary
-  is uncertain, order the entries by speech and space them inside the clip; a pile of entries
-  at one timestamp is a defect.
+- TIMESTAMP ACCURACY IS THE WHOLE JOB. Stamp each utterance's start at the audio ONSET (the first
+  millisecond a voice is heard) and end at the audio OFFSET (when it stops), in absolute full-video
+  seconds. Do NOT place timestamps on a fixed cadence or at even intervals — place them on the
+  real speech. If you cannot hear a clear onset, space the entries in speech order inside the clip.
+- One original speaker turn = one entry. A turn ends when the speaker pauses clearly or another
+  speaker starts — never merge two speakers into one line, never split one turn into two entries.
+- Translate EXACTLY what is spoken, in speech order — one COMPLETE translated line per turn.
+  Never end on a dangling particle (က / တဲ့ / များ / တော့ / ကို / မှာ / ကြောင့် / ဖို့ / နဲ့ / ပြီး /
+  တုန်း / ရဲ့ / ဟာ / လည်း / လို့ / ရင် / သော / သည့် / စွာ / ချင်း / ရင်း / သို့ / ကာ / လျက်) —
+  keep translating until the sentence reaches a finished verb and a real "။".
+- Label `speaker` "MALE" or "FEMALE" (capitals) by the VOICE heard, not appearance — the dub
+  engine picks the matching gender voice from this tag.
+- NEVER give two entries the same start time, and NEVER stamp at the clip end or the video
+  duration — every entry sits on its own audible onset/offset.
 - Never cut a word in half — finish every word fully.
-- Keep the translation short enough for its own [start, end] speech window at a calm, natural pace.
-  Do not use a later speaker's start as extra time and do not stretch a line into silence."""
+- The translation must fit its own [start,end] window at a CALM natural pace; the retime engine
+  slows the picture up to 0.75x for a small overrun, but a line far longer than its window will
+  still run over — so say it concisely without dropping meaning."""
 
     return f"""You are an award-winning film recap writer and professional dubbing director. Follow the
 selected task exactly; Recap and Dialogue Dubbing are different products.
@@ -998,12 +1001,18 @@ _MY_FRAGMENT_SUFFIXES = (
     "တော့", "ဖို့", "ကို", "မှာ", "ထဲ", "ပေါ်", "နဲ့", "ပြီး", "လို့", "မို့",
     "ရင်", "တဲ့", "တာ", "ဘဲ", "ပဲ", "လွန်း", "အောင်", "ထိ", "၍", "သော",
     "သည့်", "မည့်", "စွာ", "ချင်း", "ရင်း",
+    # v1.27: sentence-splitting leftovers the owner's real timeline shows —
+    # a "။" after these is a FALSE close: the sentence continues on the next
+    # entry, so the voice speaks half a thought and stops. "နဲ့။", "ပြီး။",
+    # "တုန်း။", "လို့။", "ဆဲ။" all dangle the same way.
+    "တုန်း", "ဆဲ", "စဉ်", "အလျှင်း", "လျက်", "ကြ", "နေချိန်", "ခါ",
     # v1.10: verb-less endings that used to pass as "complete" — a line
     # ending on one of these has no predicate, however it is punctuated:
     # direction without a verb ("ဆိုင်သို့။"), a dangling conjunction
-    # ("ယောက်ျားလေးနှင့်။"), a bare noun phrase ("မျက်လုံးများ။"),
-    # or a subordinate participle ("ထိုင်ကာ။", "လုပ်လျက်။").
-    "သို့", "နှင့်", "များ", "ကာ", "လျက်",
+    # ("ယောက်ျားလေးနှင့်။"), a bare noun phrase ("မျက်လုံးများ။",
+    # "သစ်ခုတ်သမားတွေ။"), or a subordinate participle ("ထိုင်ကာ။",
+    # "လုပ်လျက်။").
+    "သို့", "နှင့်", "များ", "တွေ", "ကာ", "လျက်",
     # v1.12: a bare topic with no comment ("သူဟာ။", "သူမဟာ။") and a
     # trailing "also" ("ငါလည်း။") are fragments too — missing either
     # one broke whole merge chains, because the merge only continues
@@ -1604,10 +1613,16 @@ class TimelineExtractor:
                     same_speaker = bool(sp_prev) and sp_prev == sp_cur
                 else:
                     same_speaker = True
+                # v1.27: the fragment→continuation gap can be several seconds
+                # (the model splits one sentence across scene boundaries, so
+                # "…နဲ့။" → "သူ့ရဲ့…ပါတယ်။" can sit 4-10s apart in real
+                # timelines). A TRUE fragment always continues; a terse
+                # (complete) line only merges when it's almost adjacent.
+                max_gap = 8.0 if prev_frag else 1.5
                 if (prev_text and same_speaker
                         and (prev_frag
                              or line_is_terse(prev_text, prev_window, self.lang))
-                        and gap <= 1.5 and 0 < window <= 16.0
+                        and gap <= max_gap and 0 < window <= 16.0
                         and estimate_speech_seconds(joined, self.lang) <= window * 1.5):
                     prev["text"] = joined
                     prev["end"] = d.get("end", prev.get("end"))

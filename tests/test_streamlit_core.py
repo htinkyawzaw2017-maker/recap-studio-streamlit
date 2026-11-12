@@ -190,6 +190,28 @@ _sp2 = compute_spans([(0.0, 4.0, 6.0, 0)], 4.0)
 ok(abs(_sp2[0].speed - _MVS) < 0.01 and _sp2[0].freeze > 0.5,
    "extreme overflow: floor speed first, freeze only the remainder")
 
+# 13b ── v1.27: every slot lands on the 30fps frame grid (no accumulated
+#       drift), and the voice is never cut even when the speech needs more
+#       room than the frame-trimmed picture has.
+import random as _rnd
+_rnd.seed(3)
+_wins, _t = [], 0.0
+for _i in range(50):
+    _sl = _rnd.uniform(1.5, 8.0)
+    _wins.append((_t, _t + _sl, _sl * _rnd.uniform(0.3, 1.8), _i))
+    _t += _sl
+_frame_ok = True
+for _s in compute_spans(_wins, _t, tighten_pause=0.45):
+    if _s.slot_len < _s.speech - 1e-9:          # voice cut
+        _frame_ok = False
+    if not (0.5 <= _s.speed <= 1.0):            # sped up / over-slowed
+        _frame_ok = False
+ok(_frame_ok, "v1.27 spans: voice never cut, speed stays 0.5–1.0x")
+# near-fit overrun that used to get silently truncated mid-word:
+_edge = compute_spans([(0.0, 3.576, 3.595, 0)], 3.576)
+ok(_edge[0].slot_len >= 3.595 and _edge[0].speed <= 1.0,
+   "near-fit overrun: slot holds full speech, picture stays 1.0x/frozen")
+
 # 14 ── v1.4: PNG/Raqm subtitle burn (libass shapes Myanmar incorrectly in
 #       our deploy environments; shaping itself is A/B-verified visually)
 from recapstudio import subpng
