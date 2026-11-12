@@ -693,6 +693,10 @@ DUBBING VOICE — NON-NEGOTIABLE:
   sentence continues, keep translating until the sentence ends with a finished verb.
 - Label `speaker` with the character's name or role when identifiable — never the generic word
   'Speaker' for every entry.
+- v1.25 GENDER TAG (mandatory in Dubbing mode): the `speaker` field MUST be exactly "MALE" or
+  "FEMALE" (capital letters) — judge by the VOICE you hear, not the appearance. A child, a
+  narrator, a crowd leader — tag by whether the voice sounds male or female. The dub engine
+  uses this tag to pick the matching gender voice for that line.
 - NEVER give two entries the same start time, and NEVER use the clip end or the full-video
   duration as a timestamp — stamp each entry from its own audible onset/offset. If a boundary
   is uncertain, order the entries by speech and space them inside the clip; a pile of entries

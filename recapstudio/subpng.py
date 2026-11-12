@@ -186,8 +186,13 @@ def build_subtitle_track(dialogues: list[dict[str, Any]], *, width: int,
             fh.write(f"duration {secs:.3f}\n")
         fh.write(f"file '{Path(uniform[-1][0]).resolve()}'\n")
     track = work_dir / "subs_track.mov"
+    # v1.25: ffmpeg 8 dropped the legacy -vsync flag for -fps_mode; 6.x/7.x
+    # only accept -vsync. Try the modern name first and fall back so the
+    # subtitle track builds on any ffmpeg version.
+    from .media import ffmpeg_supports as _supports
+    _rate_flag = ("-fps_mode", "vfr") if _supports("fps_mode") else ("-vsync", "vfr")
     run_ffmpeg(["-y", "-f", "concat", "-safe", "0", "-i", str(list_file),
-                "-vsync", "vfr", "-pix_fmt", "rgba", "-c:v", "qtrle",
+                *_rate_flag, "-pix_fmt", "rgba", "-c:v", "qtrle",
                 "-video_track_timescale", "1000", str(track)],
                check=True, label="📝 Subtitle track")
     # the overlay band height is simply the track's own video height,

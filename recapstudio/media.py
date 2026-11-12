@@ -133,6 +133,29 @@ class ProcessRegistry:
 process_registry = ProcessRegistry()
 
 
+_FFMPEG_SUPPORTS: dict[str, bool] = {}
+
+
+def ffmpeg_supports(flag: str) -> bool:
+    """True when the system ffmpeg accepts ``-<flag>`` (cached per flag).
+
+    v1.25: ffmpeg 8 removed the legacy ``-vsync`` option in favour of
+    ``-fps_mode``; older 6.x/7.x builds only know ``-vsync``. Feature-flag
+    probing keeps render code working on both.
+    """
+    if flag in _FFMPEG_SUPPORTS:
+        return _FFMPEG_SUPPORTS[flag]
+    try:
+        out = subprocess.run(
+            [FFMPEG, "-hide_banner", "-h", "full"],
+            capture_output=True, text=True, timeout=30).stdout
+        ok = f"-{flag}" in out
+    except Exception:
+        ok = False
+    _FFMPEG_SUPPORTS[flag] = ok
+    return ok
+
+
 def run_ffmpeg(
     args: Iterable[str],
     *,

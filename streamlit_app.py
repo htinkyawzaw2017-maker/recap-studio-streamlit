@@ -359,7 +359,7 @@ st.markdown("""
   <h1>🎬 <span class="grad">Recap Studio MM</span> — Free Edition</h1>
   <p>ဘာသာစကားမရွေး ဗီဒီယို → သဘာဝကျတဲ့ 🇲🇲 မြန်မာ / 🇬🇧 English Recap —
      Gemini Free Keys အများကြီး သုံးနိုင်ပြီး၊ Script ကို အရင်ပြင်ပြီးမှ Render လုပ်ပါတယ်။</p>
-  <p style="opacity:.75">app v1.24</p>
+  <p style="opacity:.75">app v1.25</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -636,8 +636,15 @@ else:
     sub_on = _r5.toggle("📝 စာတန်းထိုး ထည့်မည်", value=True)
     mute_org = _r6.toggle("🔇 မူရင်းအသံ ပိတ်မည်", value=True,
                           help="ပိတ်ထားရင် မူရင်း စကားသံကို ဖယ်ပြီး Recap အသံပဲ ထားပါမယ်")
-    mirror_on = _r7.toggle("🪞 Mirror Mode", value=False,
-                           help="ဗီဒီယိုကို ဘယ်-ညာ ပြောင်းပြန် လှန်ပါမယ် (စာတန်းထိုး မလှန်ပါ)")
+    # v1.25 (Option A): Dubbing mode — remove the original DIALOGUE voice but
+    # keep music/ambience (centre-channel cancellation), so the dub speaks
+    # over the background sound instead of dead silence.
+    keep_bg = _r7.toggle("🎵 နောက်ခံ တေးဂီတ/အသံ ထားမည် (Dubbing)",
+                         value=(fill_mode == "dialogue"),
+                         help="Dubbing mode မှာ မူရင်း စကားသံကို ဖယ်ပြီး တေးဂီတ/ရုပ်ရှင် အသံများကို ထားပါမယ် (စကား အသံ ၁၀၀% မသန့်ပါ)။ "
+                              "🪞 Mirror ကို ဒီ toggle အောက်မှာ ရွှေ့ထားပါတယ် — အောက်တွင် ရှိပါတယ်။")
+    mirror_on = st.toggle("🪞 Mirror Mode", value=False,
+                          help="ဗီဒီယိုကို ဘယ်-ညာ ပြောင်းပြန် လှန်ပါမယ် (စာတန်းထိုး မလှန်ပါ)")
 
     st.markdown('<div class="bigbtn">', unsafe_allow_html=True)
     _go = st.button("🧠 AI ဖြင့် Recap Script ထုတ်မည်", use_container_width=True, disabled=BUSY)
@@ -694,7 +701,7 @@ else:
                 # keep the chosen settings for the render step
                 SS["render_cfg"] = {"lang": lang, "voice_key": voice_key, "aspect": aspect,
                                     "sub_on": sub_on, "mute_org": mute_org,
-                                    "mirror": mirror_on,
+                                    "mirror": mirror_on, "keep_bg": keep_bg,
                                     "fill_mode": fill_mode}
                 SS["draft_dialogues"] = []
                 ensure_project()
@@ -904,6 +911,7 @@ else:
                 _render_in, str(_narration), str(_plain),
                 ass_path=None,
                 reframe=_reframe, mute_original=bool(_cfg.get("mute_org", True)),
+                remove_vocals=bool(_cfg.get("keep_bg", False)),
                 mirror=bool(_cfg.get("mirror", False)),
                 quality="fast", target_size=_size, duration=_total, progress=_rp)
             # ── စာတန်း ထည့်ခြင်း (v1.4): libass က မြန်မာ အက္ခရာ ပုံသွင်း
@@ -947,6 +955,7 @@ else:
                         _render_in, str(_narration), str(_out),
                         ass_path=str(_ass),
                         reframe=_reframe, mute_original=bool(_cfg.get("mute_org", True)),
+                        remove_vocals=bool(_cfg.get("keep_bg", False)),
                         mirror=bool(_cfg.get("mirror", False)),
                         quality="fast", target_size=_size, duration=_total, progress=_rp)
                     _sub_note = "⚠️ Raqm မရှိလို့ စာတန်းကို ASS နည်းဟောင်းနဲ့ ထည့်ထားပါတယ်"
@@ -998,6 +1007,6 @@ if SS["outputs"]:
         st.markdown(f'<span class="warnline">⚠️ {_w}</span>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="footer">Recap Studio MM — Free Edition (Streamlit) • app v1.24 • '
+st.markdown('<div class="footer">Recap Studio MM — Free Edition (Streamlit) • app v1.25 • '
             'အခြေခံ engine: Recap Studio MM Pro v4.4 • Gemini Free + Edge TTS + FFmpeg</div>',
             unsafe_allow_html=True)

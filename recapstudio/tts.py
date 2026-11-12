@@ -45,19 +45,19 @@ ProgressFn = Optional[Callable[[float, str], None]]
 VOICE_CATALOG: dict[str, dict[str, dict[str, str]]] = {
     "my": {
         "thiha": {"name": "မင်းသန့် (Action Narrator)", "voice": "my-MM-ThihaNeural",
-                  "rate": "+0%", "pitch": "-1Hz", "lang": "my"},
+                  "rate": "+0%", "pitch": "-1Hz", "lang": "my", "gender": "MALE"},
         "nilar": {"name": "မေသူ (Drama & Expressive)", "voice": "my-MM-NilarNeural",
-                  "rate": "+0%", "pitch": "+1Hz", "lang": "my"},
+                  "rate": "+0%", "pitch": "+1Hz", "lang": "my", "gender": "FEMALE"},
     },
     "en": {
         "christopher": {"name": "Christopher (Cinematic Male)", "voice": "en-US-ChristopherNeural",
-                        "rate": "+0%", "pitch": "-1Hz", "lang": "en"},
+                        "rate": "+0%", "pitch": "-1Hz", "lang": "en", "gender": "MALE"},
         "jenny": {"name": "Jenny (Energetic Female)", "voice": "en-US-JennyNeural",
-                  "rate": "+0%", "pitch": "+1Hz", "lang": "en"},
+                  "rate": "+0%", "pitch": "+1Hz", "lang": "en", "gender": "FEMALE"},
         "guy": {"name": "Guy (Documentary Male)", "voice": "en-US-GuyNeural",
-                "rate": "+0%", "pitch": "+0Hz", "lang": "en"},
+                "rate": "+0%", "pitch": "+0Hz", "lang": "en", "gender": "MALE"},
         "aria": {"name": "Aria (Calm Narrator)", "voice": "en-US-AriaNeural",
-                 "rate": "+0%", "pitch": "+0Hz", "lang": "en"},
+                 "rate": "+0%", "pitch": "+0Hz", "lang": "en", "gender": "FEMALE"},
     },
 }
 
@@ -222,6 +222,10 @@ class PlannedLine:
     trimmed: bool = False
     skipped: bool = False
     reason: str = ""
+    #: v1.25: "MALE"/"FEMALE" from the AI timeline (Option A) — decides which
+    #: catalog voice speaks this line in Dubbing mode. Empty/unknown → the
+    #: user's chosen voice.
+    speaker: str = ""
 
     def as_dict(self) -> dict:
         return {
@@ -380,7 +384,7 @@ class TTSEngine:
     # ── planning ───────────────────────────────────────────────────────
     def plan_lines(self, dialogues: list[dict], duration: float,
                    lang: str = "my", *, strict_timing: bool = False) -> list[PlannedLine]:
-        cleaned: list[tuple[float, float, str]] = []
+        cleaned: list[tuple[float, float, str, str]] = []
         for item in sorted(dialogues, key=lambda d: float(d.get("start", 0.0))):
             text = clean_script_line(str(item.get("text", "")), lang)
             try:
@@ -389,11 +393,14 @@ class TTSEngine:
                 continue
             if not text or start >= duration:
                 continue
-            cleaned.append((start, float(item.get("end", start + 2.5) or start + 2.5), text))
+            # v1.25: carry the AI's speaker gender tag (Option A)
+            speaker = str(item.get("speaker", "") or "").strip().upper()
+            cleaned.append((start, float(item.get("end", start + 2.5) or start + 2.5),
+                            text, speaker))
 
         planned: list[PlannedLine] = []
         guard = 0.06
-        for idx, (start, end, text) in enumerate(cleaned):
+        for idx, (start, end, text, speaker) in enumerate(cleaned):
             # The window a line may occupy = until the next line starts. We do
             # NOT cap it by the model's own (often optimistic) `end` value:
             # speech is never stretched, so a longer window simply means the
@@ -418,7 +425,7 @@ class TTSEngine:
                     hard = max(target, min(max(0.4, duration - 0.05 - start), target + 3.0))
             planned.append(PlannedLine(index=idx, start=start, end=end, text=text,
                                        target_seconds=target, hard_limit_seconds=hard,
-                                       window_end_seconds=window_end))
+                                       window_end_seconds=window_end, speaker=speaker))
         return planned
 
     def _fit_to_window(self, line: PlannedLine, voice_cfg: dict[str, str],
@@ -491,21 +498,40 @@ class TTSEngine:
         clips: dict[int, Path] = {}
         done = 0
 
+        # v1.25 (Option A): per-line voice by speaker gender. The AI tags each
+        # dialogue line "MALE"/"FEMALE"; map those to a voice of the same
+        # language from the catalog (male → first male-sounding voice, female
+        # → female-sounding voice). Unknown/absent tag → the user's voice.
+        def _gender_voice(tag_word: str) -> dict[str, str]:
+            catalog = VOICE_CATALOG.get(lang) or VOICE_CATALOG["my"]
+            for cfg in catalog.values():
+                if cfg.get("gender") == tag_word:
+                    return cfg
+            return dict(voice_cfg)
+
+        male_voice = _gender_voice("MALE")
+        female_voice = _gender_voice("FEMALE")
+
         def synth_one(line: PlannedLine) -> tuple[int, Optional[Path]]:
             if cancel and cancel():
                 raise CancelledError("အလုပ်ကို ရပ်တန့်လိုက်ပါပြီ")
+            use_voice = voice_cfg
+            if line.speaker == "MALE" and male_voice:
+                use_voice = male_voice
+            elif line.speaker == "FEMALE" and female_voice:
+                use_voice = female_voice
             # Natural 1.0x takes depend only on (voice, rate, pitch, text):
             # a cached take stays valid whatever the timeline windows are.
-            cache_key = _hash_key(voice_cfg["voice"], voice_cfg.get("rate", "+0%"),
-                                  voice_cfg.get("pitch", "+0Hz"), line.text, "natural1x")
+            cache_key = _hash_key(use_voice["voice"], use_voice.get("rate", "+0%"),
+                                  use_voice.get("pitch", "+0Hz"), line.text, "natural1x")
             cached = self.cache_dir / f"{cache_key}.wav"
             if cached.exists() and cached.stat().st_size > 500:
                 line.speech_seconds = get_media_duration(cached)
                 if line.speech_seconds > 0.05:
                     return line.index, cached
-            produced = self._fit_to_window(line, voice_cfg, work_dir, tag,
+            produced = self._fit_to_window(line, use_voice, work_dir, tag,
                                            strict_timing=strict_timing)
-            if produced is None and fallback_voice_cfg:
+            if produced is None and fallback_voice_cfg and fallback_voice_cfg != use_voice:
                 # A line that fails on one voice usually succeeds on the other
                 # (edge-tts throttles individual voices) - better than a hole
                 # in the narration.

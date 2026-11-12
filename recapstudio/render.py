@@ -120,16 +120,35 @@ def _mix_two(label_a: str, label_b: str, out_label: str, post_gain: float = 1.0)
 
 
 def _audio_filter(input_has_audio: bool, mute_original: bool, keep_original_level: float,
-                  narration_gain: float, use_ducking: bool) -> tuple[str, str]:
+                  narration_gain: float, use_ducking: bool,
+                  remove_vocals: bool = False) -> tuple[str, str]:
     if not input_has_audio or mute_original or keep_original_level <= 0.001:
         return f"[1:a]volume={narration_gain:.2f}[aout]", "aout"
     if use_ducking:
+        # v1.25 (Option A vocal-removal): when remove_vocals is set, the
+        # original track first goes through centre-channel cancellation
+        # (karaoke filter) so the DIALOGUE voice is mostly removed while
+        # music/ambience (stereo-wide content) survives — then ducking keeps
+        # whatever residual speech remains quiet under the dub voice.
+        src_prep = ("karaoke=0.9,"
+                    "aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo"
+                    if remove_vocals else
+                    "aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo")
         return (
             "[1:a]asplit[ai_main][ai_key];"
-            "[0:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,"
+            f"[0:a]{src_prep},"
             f"volume={keep_original_level:.2f}[sfx];"
             "[sfx][ai_key]sidechaincompress=threshold=0.02:ratio=12:attack=8:release=600[sfx_ducked];"
             + _mix_two("sfx_ducked", "ai_main", "aout", post_gain=narration_gain)
+        ), "aout"
+    if remove_vocals:
+        return (
+            "[0:a]karaoke=0.9,"
+            "aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,"
+            f"volume={keep_original_level:.2f}[sfx];"
+            "[1:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,"
+            f"volume={narration_gain:.2f}[ai];"
+            + _mix_two("sfx", "ai", "aout")
         ), "aout"
     return (
         "[0:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,"
@@ -147,6 +166,7 @@ def render_master(input_video: str, narration_wav: str, output_video: str, *,
                   reframe: str = "Smart Blur Background",
                   mute_original: bool = True,
                   keep_original_level: float = 0.12,
+                  remove_vocals: bool = False,
                   narration_gain: float = 1.25,
                   quality: str = "balanced",
                   target_size: tuple[int, int] | None = None,
@@ -177,7 +197,8 @@ def render_master(input_video: str, narration_wav: str, output_video: str, *,
     if not needs_video_work:
         # Nothing to draw: copy both streams (or add the new audio track).
         audio_filter, audio_label = _audio_filter(
-            info["has_audio"], mute_original, keep_original_level, narration_gain, True)
+            info["has_audio"], mute_original, keep_original_level, narration_gain, True,
+            remove_vocals=remove_vocals)
         cmd = [
             "-y", "-i", input_video, "-i", narration_wav,
             "-filter_complex", audio_filter,
@@ -204,7 +225,8 @@ def render_master(input_video: str, narration_wav: str, output_video: str, *,
             mirror=mirror,
         )
         audio_filter, audio_label = _audio_filter(
-            info["has_audio"], mute_original, keep_original_level, narration_gain, True)
+            info["has_audio"], mute_original, keep_original_level, narration_gain, True,
+            remove_vocals=remove_vocals)
         inputs = ["-i", input_video, "-i", narration_wav]
         if valid_logo:
             inputs += ["-i", valid_logo]
