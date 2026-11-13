@@ -580,23 +580,33 @@ MODE_PROMPTS = {
 
 FILL_MODE_PROMPTS = {
     "continuous": (
-        "MODE = PROFESSIONAL MOVIE RECAP. You are narrating as an experienced movie-recap "
-        "storyteller, not dubbing the actors. Watch the visual action in sequence: explain who does "
-        "what, why the moment matters, and how it changes the story. Use vivid but natural spoken "
-        "language, suspense and smooth transitions. Paraphrase dialogue only when it is essential "
-        "to explain the plot; do not translate every spoken line. Cover the complete clip, including "
-        "quiet visual scenes, but never invent a fact that is not supported by the video."
+        "MODE = PROFESSIONAL RECAP SCRIPT, ANCHORED TO THE TIMESTAMPS (owner rule v1.29). "
+        "You are the professional recap narrator of this video, and the timestamps are the "
+        "authority: every entry must sit exactly on the moment it describes. Retell the WHOLE "
+        "video from its first second to its LAST second, in order, exactly as the story is "
+        "actually told in the source — the same events, the same speakers, the same details, "
+        "nothing skipped and nothing invented. This is a complete retelling, NOT a summary: "
+        "never compress, never omit a scene, never jump over a quiet passage, and NEVER cut the "
+        "ending — the final entry must carry the story through to the end of the clip. "
+        "Narration is spoken naturally; if a line needs more time than its scene has, the "
+        "renderer slows the picture so the voice finishes in full, so write the complete "
+        "thought and never shorten it to fit."
     ),
     "dialogue": (
-        "MODE = PROFESSIONAL DIALOGUE DUBBING. Act as a professional dubbing translator and "
-        "voice director. Listen to the source audio and use it as the authority for what was said; "
-        "do not infer dialogue from the picture, subtitles, or plot. Transcribe the meaning internally "
-        "then render a faithful, natural spoken translation in the requested target language, keeping "
-        "the speaker's intent, emotion, register, and turn-taking. Output ONLY genuine audible speech: "
-        "never describe the picture, summarize, add narration, or fill silence. Start at the audible "
-        "speech onset and end at the audible speech offset (within 0.3 seconds when the boundary is "
-        "clear). Keep each translated line concise enough to finish inside that same speech window; "
-        "do not make it fast just to fit."
+        "MODE = PROFESSIONAL FULL TRANSLATION DUBBING (owner rule v1.29). Act as a professional "
+        "dubbing translator and voice director. Listen to the source audio and use it as the "
+        "authority for what was said; never infer dialogue from the picture or the plot. "
+        "Translate EVERY audible utterance COMPLETELY and FAITHFULLY, from the first second of "
+        "the clip to the last — the same meaning, the same speakers, the same details, emotion "
+        "and turn-taking, in natural spoken language a native speaker would actually use. "
+        "This is a FULL TRANSLATION, never a summary: never shorten, compress, paraphrase away, "
+        "or drop any sentence, clause, name, number or detail, and NEVER stop early or cut the "
+        "ending — if a character is still speaking near the end of the clip, the translation "
+        "must reach there. Output ONLY genuine audible speech: never describe the picture, "
+        "summarise, add narration, or fill silence. Start each entry at the audible speech "
+        "onset and end at the audible speech offset (within 0.3 seconds when the boundary is "
+        "clear). Render the COMPLETE meaning — the renderer slows the picture so a longer "
+        "faithful line finishes in full; a trimmed line is a defect, never a solution."
     ),
 }
 
@@ -716,48 +726,71 @@ DUBBING VOICE — NON-NEGOTIABLE:
     lang_word = _language_name(target_language)
     four_sec, eight_sec = budget_chars(4.0, target_language), budget_chars(8.0, target_language)
     selected_mode = fill_mode if fill_mode in FILL_MODE_PROMPTS else "continuous"
-    if selected_mode == "continuous":
-        task_rules = f"""RECAP TIMELINE RULES
-- Narrate continuously from the beginning to the end of this clip.
-- The first entry should start within 4 seconds of {chunk_start:.2f}s; the final entry should reach
-  the final scene near {chunk_end:.2f}s. No unexplained narration gap may exceed 4 seconds.
-- During quiet scenes, narrate the visible action and its story consequence. This is the only mode
-  in which you should add connective narration.
-- ONE COMPLETE SENTENCE = ONE ENTRY. Never split a sentence across two entries, and never end an
-  entry on a particle or subordinate clause (နဲ့ / ပြီး / တုန်း / တဲ့ / ရင် / ကို / မှာ / ကြောင့် /
-  ဖို့ / လို့ / ရဲ့ / ဟာ / လည်း / သို့ / များ / ကာ / လျက် / သော / သည့် / စွာ / ချင်း / ရင်း).
-  Read each entry alone: if it is not a finished, stand-alone sentence ending in "။", it is WRONG —
-  rewrite it as one full sentence or merge it with its continuation.
-- TIMING: stamp each entry's start at the moment its beat is actually on screen, and its end when
-  that beat finishes. A 5–10 second spoken line should cover the seconds of picture it describes —
-  not a fixed cadence. Do NOT pad timestamps evenly; place them on the real visual changes.
-- Prefer fewer, fuller lines of 5-10 seconds over many tiny 2-3 second scraps about the same beat."""
+    is_dub = selected_mode == "dialogue"
+    if is_dub:
+        budget_rule = (
+            f"A calm {lang_word} voice speaks about {cps:.0f} characters per second "
+            f"(a 4-second window ≈ {four_sec} characters, 8 seconds ≈ {eight_sec}). Use this only "
+            "as a pacing guide so the line does not drag — it is NEVER a reason to drop content.")
+        fit_rule = (
+            "PER-MINUTE FIT IS DISABLED for dubbing: translate every spoken sentence in full. "
+            "Never merge, drop or trim a turn to hit a time budget — completeness always beats "
+            "fitting. A longer faithful line is handled by slowing the picture, not by cutting text.")
     else:
-        task_rules = f"""DIALOGUE DUB TIMELINE RULES — FULL TRANSLATION (never summarise)
+        budget_rule = (
+            f"A calm {lang_word} voice speaks about {cps:.0f} characters per second "
+            f"(a 4-second window ≈ {four_sec} characters, 8 seconds ≈ {eight_sec}). A recap line "
+            "should use its window well — neither a caption scrap nor a long overrun.")
+        fit_rule = (
+            "PER-MINUTE EXACT FIT (ကွက်တိ): plan your lines in 60-second blocks. The TOTAL of all "
+            f"lines inside one block must be speakable within that minute — at most about "
+            f"{int(60 * cps * 0.92)} {lang_word} characters per block, pauses included. Every line "
+            "must START and END inside the same block. NEVER cut the ending of the story to stay "
+            "inside a block — the final block runs to the end of the clip. A line that is too long "
+            "for its scene should be told more tightly, but the story itself is never shortened.")
+
+    if selected_mode == "continuous":
+        task_rules = f"""RECAP TIMELINE RULES — TIMESTAMP-ANCHORED FULL RETELLING
+- Narrate continuously from the first second to the LAST second of this clip. The final entry must
+  reach the end of the clip ({chunk_end:.2f}s) — never stop early, never omit the ending.
+- The first entry starts within 4 seconds of {chunk_start:.2f}s. No unexplained narration gap may
+  exceed 4 seconds.
+- TALK ABOUT WHAT IS ON SCREEN AT THAT TIMESTAMP: each entry describes the beat happening at its
+  own stamped moment. This is the authority — a line must not describe an earlier or later scene.
+- Retell EVERY beat in order — the same events, speakers and details the source presents, nothing
+  skipped, nothing invented. Quiet scenes are narrated too (that is this mode's job).
+- ONE COMPLETE SENTENCE = ONE ENTRY. Never split a sentence across entries and never end on a
+  particle or subordinate clause (နဲ့ / ပြီး / တုန်း / တဲ့ / ရင် / ကို / မှာ / ကြောင့် / ဖို့ /
+  လို့ / ရဲ့ / ဟာ / လည်း / သို့ / များ / ကာ / လျက် / သော / သည့် / စွာ / ချင်း / ရင်း).
+  Read each entry alone — if it is not a finished stand-alone sentence, it is WRONG.
+- Do NOT pad timestamps evenly: place them on the real visual changes. Prefer fewer, fuller lines
+  of 5-10 seconds over many tiny 2-3 second scraps about the same beat."""
+    else:
+        task_rules = f"""DIALOGUE DUB TIMELINE RULES — COMPLETE TRANSLATION, BEGINNING TO END
 - Return an entry ONLY for real speech audible in the source audio. A quiet interval is correct;
   never add a line to satisfy clip coverage.
-- TIMESTAMP ACCURACY IS THE WHOLE JOB. Stamp each utterance's start at the audio ONSET and end at
-  the audio OFFSET, in absolute full-video seconds. Do NOT place timestamps on a fixed cadence —
-  place them on the real speech.
-- FULL TRANSLATION, NEVER A SUMMARY: render EVERY spoken utterance completely and faithfully.
-  Do NOT shorten, compress, paraphrase-away, or drop any sentence, clause, name, number or detail
-  to make it fit the window. The dub engine slows the picture to meet the voice, so a faithful
-  translation that runs a little long is correct — a trimmed translation is a defect.
-- One original speaker turn = one COMPLETE translated line, start to finish. Never split a turn,
-  never merge two speakers. Never end on a dangling particle — keep translating until the
-  sentence reaches a finished verb and real final punctuation.
+- TIMESTAMP ACCURACY IS THE WHOLE JOB: stamp each utterance's start at the audio ONSET and its end
+  at the audio OFFSET, in absolute full-video seconds. No fixed cadence — the real speech decides.
+- TRANSLATE EVERYTHING, FROM START TO FINISH: every audible utterance in this clip gets one
+  completely translated line, in speech order, from the first word to the last. Nothing skipped,
+  nothing summarised, nothing half-translated.
+- NEVER CUT TEXT: do not shorten, compress, paraphrase away, or drop any sentence, clause, name,
+  number or detail — not at the start, not in the middle, and especially NOT at the end. A line
+  that runs long is correct; the renderer slows the picture so the full voice finishes.
+- NEVER STOP EARLY: if characters keep speaking up to {chunk_end:.2f}s, the last translated line
+  must reach there. A dub that ends before the speech does is a failure.
+- One original speaker turn = one COMPLETE translated line. Never split a turn, never merge two
+  speakers. Never end on a dangling particle — keep translating to a finished verb and real
+  final punctuation.
 - Label `speaker` "MALE" or "FEMALE" (capitals) by the VOICE heard, not appearance.
-- NEVER give two entries the same start time, and NEVER stamp at the clip end or video duration —
-  every entry sits on its own audible onset/offset.
-- Cover the WHOLE clip: if characters keep speaking until {chunk_end:.1f}s, the last translated
-  line must reach there — a dub that stops early is a failure."""
+- NEVER give two entries the same start time, and NEVER stamp at the clip end or video duration."""
 
     return f"""You are an award-winning film recap writer and professional dubbing director. Follow the
 selected task exactly; Recap and Dialogue Dubbing are different products.
 
 VIDEO SEGMENT: this is only part of a longer video. It starts at {chunk_start:.2f}s and ends at
 {chunk_end:.2f}s. Full-video duration: {duration:.2f}s.
-TARGET SPOKEN LANGUAGE: {lang_instruction}.
+TARGET SPOKEN LANGUAGE: {lang_instruction}. Translate/retell into THIS language only.
 GENRE CONTEXT: {MODE_PROMPTS.get(mode_key, MODE_PROMPTS['auto'])}
 {FILL_MODE_PROMPTS[selected_mode]}
 {style_block}
@@ -766,21 +799,15 @@ MANDATORY RULES
 1. TIMESTAMPS ARE ABSOLUTE full-video seconds. The first second of this clip is {chunk_start:.2f}s,
    not zero. Keep every line inside {chunk_start:.2f}s–{chunk_end:.2f}s.
 2. {task_rules}
-3. NATURAL SPEAKING BUDGET: a calm {lang_word} voice speaks about {cps:.0f} characters per second.
-   A 4-second window is about {four_sec} characters; 8 seconds is about {eight_sec}. Do not exceed
-   the actual line window. In Dubbing mode, preserve meaning first and use a concise, idiomatic
-   translation rather than rushing; set both hook fields to empty strings.
-3b. PER-MINUTE EXACT FIT (ကွက်တိ): plan your lines in 60-second blocks (0:00-1:00, 1:00-2:00, ...).
-   The TOTAL of all lines inside one block must be speakable within that minute — at most about
-   {int(60 * cps * 0.92)} {lang_word} characters per block, pauses included. Every line must START
-   and END inside the same block; a line may never cross a minute boundary. A line that is too
-   long for its scene is a defect: rewrite it shorter, never let the narrator overrun the scene —
-   the picture changes but the voice would still be finishing the previous scene, which ruins
-   the video. Shorter and exact always beats longer and richer.
-4. STYLE: short, clear, active spoken language. Recap mode should feel cinematic, engaging and
-   professionally told. Dubbing mode should sound like a skilled actor speaking the translated
-   source line, with matching emotion and no narrator voice. Avoid filler and repeated phrases.
-5. Do not include timecodes, camera directions, stage directions, or speaker labels inside `text`.
+3. SPEAKING BUDGET: {budget_rule}
+3b. {fit_rule}
+4. STYLE: clear, natural, active spoken language. Recap mode is a professional retelling anchored
+   to the timestamps. Dubbing mode sounds like a skilled actor speaking the translated source line,
+   with matching emotion and no narrator voice. Avoid filler and repeated phrases.
+5. COVERAGE IS MANDATORY: the first entry of the video and the last entry of the video must exist —
+   never stop translating before the clip ends, and never leave the final scene unspoken. Return
+   STRICT JSON only.
+6. Do not include timecodes, camera directions, stage directions, or speaker labels inside `text`.
    Never invent names, places, numbers, dialogue, or events. Return STRICT JSON only.
 {voice_block}
 {boundary_hint}
@@ -1108,13 +1135,18 @@ def sentence_complete(text: str, lang: str = "my") -> bool:
         # a bare verb root ("ကလေးပုံမြင်") is only a sentence when the
         # writer actually closed it with "။" — unpunctuated, it is a scrap
         return t.endswith(("။", ".", "!", "?", "…"))
-    if not t.endswith((".", "!", "?")):
+    if not t.endswith((".", "!", "?", "。", "！", "？", "、", "،", "।")):
         return False
-    return last.lower().strip(",;:") not in {
-        "the", "a", "an", "and", "but", "or", "to", "of", "in", "on", "with",
-        "because", "when", "while", "who", "which", "that", "as", "by",
-        "for", "from",
-    }
+    if lang == "en":
+        return last.lower().strip(",;:") not in {
+            "the", "a", "an", "and", "but", "or", "to", "of", "in", "on", "with",
+            "because", "when", "while", "who", "which", "that", "as", "by",
+            "for", "from",
+        }
+    # other languages: a line that ends with real sentence-final punctuation
+    # and a reasonable length is treated as complete (we don't have CJK/
+    # Arabic/etc. suffix tables; over-flagging here would mangle translations)
+    return len(core) >= 4
 
 
 
