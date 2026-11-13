@@ -3,19 +3,20 @@
 The old engine forced every narration line into its original window by
 speeding the voice up (edge-tts rate boosts + ``atempo``), which is exactly
 what made the narration race on one line and crawl on the next. The rule
-now (owner's decision, 2026-10-22):
+now (owner decisions, latest v1.30):
 
-* the voice is ALWAYS synthesised and used at 1.0x — never sped up,
-  never slowed down, never trimmed to fit;
-* a line's slot on the output timeline is as long as the speech needs;
-* the source video inside the slot is slowed down to match, but never
-  below ``MIN_VIDEO_SPEED`` (0.75x since v1.4 — the owner asked for the
-  picture to slow down further so the voice can always finish at its
-  natural pace instead of being cut or the scene ending early);
-* if even 0.75x is not enough, the last frame is frozen (held) for the
-  remaining time — sync is exact no matter how long the video is;
-* spans without speech (gaps between lines) keep their original 1.0x
-  length, so pauses stay natural.
+* the voice is synthesised at 1.0x and used in full — text is NEVER cut;
+* when a line needs more time than its window has, FIRST the picture
+  slows, to at most ``MIN_VIDEO_SPEED`` (0.60x since v1.30 — the owner
+  accepts slow-motion down to 0.60x);
+* if even 0.60x is not enough, the VOICE may speed up to
+  ``MAX_VOICE_TEMPO`` (1.2x — still natural sounding, no words dropped);
+* FREEZE IS BANNED (owner, v1.30): the last frame is never held. If the
+  voice still needs more room, the picture simply keeps playing into the
+  following footage at 1.0x — the next line's slot shifts later, the
+  story never stops moving;
+* spans without speech keep their original 1.0x length, so pauses stay
+  natural.
 
 ``compute_spans`` is pure arithmetic (unit-testable); ``retime_video``
 renders the retimed, video-only MP4 that ``render_master`` then mixes
@@ -33,17 +34,32 @@ from .util import get_logger
 log = get_logger("recap.retime")
 
 #: Slowest the picture may go to meet a long line of speech (owner rule,
-#: v1.4: 0.75x; override with RECAP_RETIME_MIN_SPEED between 0.5 and 0.95).
+#: v1.30: 0.60x — slow-motion is acceptable, a frozen frame is not;
+#: override with RECAP_RETIME_MIN_SPEED between 0.5 and 0.95).
 def _min_speed() -> float:
     import os
     try:
-        value = float(os.getenv("RECAP_RETIME_MIN_SPEED", "0.75"))
+        value = float(os.getenv("RECAP_RETIME_MIN_SPEED", "0.60"))
     except (TypeError, ValueError):
-        value = 0.75
+        value = 0.60
     return max(0.5, min(0.95, value))
 
 
 MIN_VIDEO_SPEED = _min_speed()
+
+
+#: Fastest the VOICE may be compressed to fit (owner rule, v1.30: 1.2x —
+#: a gentle read, no words cut). Override with RECAP_MAX_VOICE_TEMPO.
+def _max_tempo() -> float:
+    import os
+    try:
+        value = float(os.getenv("RECAP_MAX_VOICE_TEMPO", "1.2"))
+    except (TypeError, ValueError):
+        value = 1.2
+    return max(1.0, min(1.5, value))
+
+
+MAX_VOICE_TEMPO = _max_tempo()
 
 
 @dataclass
@@ -55,6 +71,11 @@ class Span:
     speech: float = 0.0
     line_index: int = -1
     speed: float = 1.0
+    #: v1.30: how much the VOICE is compressed for this line (1.0 = natural).
+    #: The clip is played through atempo=tempo; text is never cut.
+    tempo: float = 1.0
+    #: frozen-tail seconds — BANNED since v1.30, always 0.0 (kept for
+    #: backwards compatibility of saved plans/tests)
     freeze: float = 0.0
     slot_start: float = 0.0
     #: source seconds dropped after this span (Recap "tighten": the dead
@@ -67,8 +88,8 @@ class Span:
 
     @property
     def slot_len(self) -> float:
-        """Output length: slowed picture + optional frozen tail."""
-        return self.src_len / self.speed + self.freeze
+        """Output length of this span's picture (freeze no longer exists)."""
+        return self.src_len / self.speed
 
 
 def compute_spans(windows: list[tuple[float, float, float, int]],
@@ -90,13 +111,21 @@ def compute_spans(windows: list[tuple[float, float, float, int]],
     timing must stay faithful to the source.)
 
     ``fps`` (v1.27): every slot is snapped to a whole number of video
-    frames. ``retime_video`` renders each span through ``fps=30``, which
-    resamples the slowed picture to the frame grid — a 5.237s plan became
-    a 5.233s segment, and those half-frame errors ACCUMULATED across
-    every span boundary (about a second of drift over a long recap).
-    Snapping the plan itself to the same grid makes the audio timeline
-    and the rendered video land on identical boundaries, so they cannot
-    drift apart.
+    frames, so the audio timeline and the rendered video land on identical
+    boundaries instead of drifting apart by half a frame per span.
+
+    v1.30 budgeting (owner rules — no freeze, ever, and no extra footage):
+
+    1. voice fits the window  → picture 1.0x
+    2. voice is longer        → the PICTURE SLOWS, down to
+       ``MIN_VIDEO_SPEED`` (0.60x) — the only lever, and it is only speed,
+       never a frozen frame
+    3. still not enough       → the VOICE is compressed up to
+       ``MAX_VOICE_TEMPO`` (1.2x — no words are cut, only the pace)
+    4. still not enough       → the line simply takes the time it needs:
+       the next line's slot starts after it (its own window stays on the
+       source footage). No freeze, no duplicated/extended footage — only
+       the original picture, moving at 0.60x–1.0x.
     """
     spans: list[Span] = []
     cursor = 0.0
@@ -114,70 +143,77 @@ def compute_spans(windows: list[tuple[float, float, float, int]],
             cursor = start
         src_len = end - start
         speech = max(0.0, float(speech))
-        speed, freeze, dropped = 1.0, 0.0, 0.0
+        speed, tempo, dropped = 1.0, 1.0, 0.0
         span_end = end
+        tightened = False
         if speech > src_len and src_len > 0.05:
             needed = src_len / speech
             if needed >= MIN_VIDEO_SPEED:
-                speed = needed
+                speed = needed            # picture slows, voice stays natural
             else:
                 speed = MIN_VIDEO_SPEED
-                freeze = max(0.0, speech - src_len / MIN_VIDEO_SPEED)
+                pic_time = src_len / MIN_VIDEO_SPEED
+                # v1.30: picture at the 0.60x floor is still not enough →
+                # gently speed the VOICE up to 1.2x. NO freeze, NO extra
+                # footage: the line simply takes as long as it takes, and
+                # the next line's slot starts right after it.
+                tempo = min(MAX_VOICE_TEMPO, max(1.0, speech / pic_time))
+                # effective spoken length after the gentle speed-up — the
+                # slot is sized for this so the clip lands inside its slot
+                # instead of overrunning it by the tempo ratio.
+                speech = speech / tempo
         elif (tighten_pause is not None and speech > 0.05
               and src_len - speech > tighten_threshold):
             keep = speech + tighten_pause
             if keep < src_len:
                 span_end = start + keep
                 dropped = end - span_end
+                tightened = True
+
         if fps > 0 and span_end > start:
             import math as _m
-            real_len = span_end - start  # tightened spans drop the tail
-            # v1.27 frame-grid snapping: retime_video renders every span
-            # through fps=30 and tpad clones frames, so only whole frames
-            # exist. Snap the SOURCE cut and the slot to whole frames, or
-            # the plan and the render disagree by up to half a frame per
-            # span — which accumulated into seconds of A/V drift across a
-            # long recap.
-            #
-            # pic_len = the seconds of rendered picture (a whole frame
-            #   count). The source is trimmed to span_end = start+pic_len
-            #   at 1.0x, or played over pic_len frames when slowed
-            #   (speed = real_len/pic_len makes the rendered picture land
-            #   exactly on the grid while src_end keeps the true extent).
+            real_len = span_end - start
+            # frame-grid snapping (see docstring): the source cut and the
+            # slot must be whole frames or plan and render disagree
             if speed < 0.999:
                 pic_frames = max(1, _m.floor(real_len / speed * fps))
-            else:
-                pic_frames = _m.floor(real_len * fps)
-            pic_len = pic_frames / fps
-            if speed < 0.999 and real_len / pic_len < 1.0:
-                # genuine slowdown: source extent is real_len, rendered over
-                # pic_len frames; slot = pic_len + freeze
-                speed = real_len / pic_len
-                span_end = start + real_len
-                slot_frames = max(pic_frames, _m.ceil(speech * fps - 1e-6))
-                freeze = max(0.0, slot_frames / fps - pic_len)
-            else:
-                # 1.0x (or a slowdown so mild it collapses to 1.0x): the
-                # rendered picture is the source trimmed to pic_len frames.
-                speed = 1.0
-                # dubbing (tighten_pause is None) keeps the source faithful —
-                # the whole real_len plays; only the recap drops tail frames.
-                faithful = tighten_pause is None and dropped <= 0
-                if faithful:
-                    span_end = start + real_len
-                else:
+                pic_len = pic_frames / fps
+                speed = real_len / pic_len if pic_len > 0 else 1.0
+                if speed >= 1.0:      # snapping pushed it back to 1.0x
+                    speed = 1.0
+                    pic_frames = _m.floor(real_len * fps)
+                    pic_len = pic_frames / fps
                     span_end = start + pic_len
-                # slot must hold the full speech — freeze covers the tail
-                base = real_len if faithful else pic_len
-                slot_frames = max(_m.ceil(base * fps - 1e-6),
-                                  _m.ceil(speech * fps - 1e-6))
-                freeze = max(0.0, slot_frames / fps - base)
-                if dropped <= 0 and not faithful and slot_frames > pic_frames:
-                    dropped = end - span_end  # picture shorter than speech
+                # v1.30: when the snapped picture lands a hair short of the
+                # voice (under one frame), take ONE more frame of the
+                # ORIGINAL footage — no freeze, the slot then holds the
+                # whole spoken line.
+                if (pic_frames > 0 and speech > pic_len
+                        and speech - pic_len <= 1.0 / fps
+                        and start + pic_len + 1.0 / fps <= span_end + 1e-6):
+                    pic_frames += 1
+                    pic_len = pic_frames / fps
+                    speed = real_len / pic_len if pic_len > 0 else 1.0
+            else:
+                speed = 1.0
+                pic_frames = _m.floor(real_len * fps)
+                # v1.30: when frame snapping leaves the picture a hair
+                # shorter than the voice (under one frame), take ONE more
+                # frame of the ORIGINAL footage so the voice sits inside its
+                # slot — no freeze, no extra material, just the next frame
+                # of the same scene.
+                if (pic_frames > 0 and speech > pic_frames / fps
+                        and speech - pic_frames / fps <= 1.0 / fps
+                        and start + (pic_frames + 1) / fps <= duration + 1e-6):
+                    pic_frames += 1
+                pic_len = pic_frames / fps
+                span_end = start + pic_len
+                if not tightened:
+                    dropped = 0.0     # sub-frame trim is not a "drop"
         spans.append(Span(src_start=start, src_end=span_end, speech=speech,
-                          line_index=line_index, speed=speed, freeze=freeze,
+                          line_index=line_index, speed=speed, tempo=tempo,
                           dropped=dropped))
-        cursor = end
+        cursor = max(end, span_end)
         drop_next_gap = dropped > 0.0
     if cursor < duration - 0.01 and not drop_next_gap:
         spans.append(Span(src_start=cursor, src_end=duration))
@@ -228,8 +264,8 @@ def retime_video(input_video: str, spans: list[Span], output_video: str | Path, 
                  f"setpts=PTS-STARTPTS")
         if abs(span.speed - 1.0) > 0.001:
             chain += f",setpts=PTS/{span.speed:.5f}"
-        if span.freeze > 0.05:
-            chain += f",tpad=stop_mode=clone:stop_duration={span.freeze:.3f}"
+        # v1.30: NO freeze — tpad is gone. The picture only ever changes
+        # speed (0.60x–1.0x); it never stops moving.
         chain += f",fps=30,scale={width}:{height},format=yuv420p,setsar=1[v{i}]"
         parts.append(chain)
         labels.append(f"[v{i}]")
@@ -254,4 +290,5 @@ def retime_video(input_video: str, spans: list[Span], output_video: str | Path, 
     return {"path": str(output_video), "duration": total,
             "spans": len(spans),
             "slowed": sum(1 for s in spans if s.speed < 0.999),
-            "frozen_seconds": round(sum(s.freeze for s in spans), 2)}
+            "sped_voice": sum(1 for s in spans if s.tempo and s.tempo > 1.005),
+            "frozen_seconds": 0.0}

@@ -791,8 +791,8 @@ class TTSEngine:
         the master audio and the retimed video share one timeline and can
         never drift apart, whatever the source length.
         """
-        from .retime import (MIN_VIDEO_SPEED, compute_spans, retimed_dialogues,
-                             total_duration)
+        from .retime import (MAX_VOICE_TEMPO, MIN_VIDEO_SPEED, compute_spans,
+                             retimed_dialogues, total_duration)
 
         windows: list[tuple[float, float, float, int]] = []
         for line in planned:
@@ -811,7 +811,8 @@ class TTSEngine:
         span_by_line = {sp.line_index: sp for sp in spans if sp.line_index >= 0}
 
         if progress:
-            progress(82, "🧵 အသံကို သဘာဝနှုန်း 1.0x ဖြင့် Timeline အသစ်တွင် ပေါင်းစပ်နေပါသည်...")
+            progress(82, "🧵 အသံကို Timeline အသစ်တွင် ပေါင်းစပ်နေပါသည် "
+                         "(freeze မရှိ — ရုပ် နှေး/အသံ အမြန်နှုန်း ချိန်ညှိ)...")
         segments: list[Path] = []
         placed: list[tuple[float, float]] = []
         cursor = 0.0
@@ -825,8 +826,21 @@ class TTSEngine:
                 make_silence_wav(span.slot_start - cursor, gap_file)
                 segments.append(gap_file)
                 cursor = span.slot_start
-            segments.append(clip)
-            length = get_media_duration(clip) or span.speech
+            # v1.30: the plan may ask for a gentle voice compression (up to
+            # 1.2x) when 0.60x slow-motion is still not enough. Text is
+            # NEVER cut — only the pace changes, via atempo.
+            if span.tempo and abs(span.tempo - 1.0) > 0.005:
+                fast_file = work_dir / f"rtempo_{tag}_{line.index}.wav"
+                if self._convert(clip, fast_file, span.tempo, None):
+                    segments.append(fast_file)
+                    length = get_media_duration(fast_file)
+                else:
+                    segments.append(clip)
+                    length = get_media_duration(clip) or span.speech
+                    span.tempo = 1.0   # conversion failed → keep natural
+            else:
+                segments.append(clip)
+                length = get_media_duration(clip) or span.speech
             placed.append((span.slot_start, span.slot_start + length))
             cursor = span.slot_start + length
             slot_end = span.slot_start + span.slot_len
@@ -839,11 +853,19 @@ class TTSEngine:
             tail = work_dir / f"rtail_{tag}.wav"
             make_silence_wav(total - cursor, tail)
             segments.append(tail)
+        # v1.30: with freeze banned, a line that cannot fit even at the
+        # 0.60x floor + 1.2x voice spills into the following footage — the
+        # audio timeline may run slightly LONGER than the picture plan. The
+        # narration must keep its full length (text is never cut), so the
+        # master follows the AUDIO end; the video simply ends a moment
+        # earlier in that rare case.
+        audio_total = max(total, cursor)
 
         final_wav = work_dir / f"narration_{tag}.wav"
-        self._concat(segments, final_wav, total)
+        self._concat(segments, final_wav, audio_total)
         for seg in segments:
-            if seg.parent == work_dir and seg.name.startswith(("rgap_", "rpad_", "rtail_")):
+            if seg.parent == work_dir and seg.name.startswith(
+                    ("rgap_", "rpad_", "rtail_", "rtempo_")):
                 seg.unlink(missing_ok=True)
 
         silent_windows: list[dict] = []
@@ -861,12 +883,17 @@ class TTSEngine:
                 f"{dropped_total:.0f}s ကို ဖြတ်ချိန်ထားပါသည် (လိုင်း တစ်ခုပြီးတိုင်း "
                 f"0.45s ပဲ နားပါသည်)")
         slowed = [sp for sp in spans if sp.speed < 0.999]
-        frozen = sum(sp.freeze for sp in spans)
-        if slowed:
-            warnings.append(
-                f"အသံ 1.0x အတိအကျ ထားပြီး စာကြောင်း {len(slowed)} ကြောင်းအတွက် "
-                f"ရုပ်ကို အနည်းဆုံး {MIN_VIDEO_SPEED:g}x အထိ နှေးထားပါသည်"
-                + (f" (နောက်ဆုံး frame ရပ်၍ {frozen:.1f}s ဖြည့်ထားသည်)" if frozen > 0.05 else ""))
+        sped = [sp for sp in spans if sp.tempo and sp.tempo > 1.005]
+        if slowed or sped:
+            bits = []
+            if slowed:
+                bits.append(f"စာကြောင်း {len(slowed)} ကြောင်းအတွက် ရုပ်ကို "
+                            f"အနည်းဆုံး {MIN_VIDEO_SPEED:g}x အထိ နှေးထားပါသည်")
+            if sped:
+                bits.append(f"စာကြောင်း {len(sped)} ကြောင်းကို အသံ "
+                            f"{max(sp.tempo for sp in sped):.2f}x အထိ မြန်ထားပါသည် "
+                            f"(စာလုံး လုံးဝ မဖြတ်ပါ)")
+            warnings.append("။ ".join(bits) + "။ (freeze မရှိ — ရုပ် အမြဲ လှုပ်နေပါသည်)")
         # dialogues in the same order plan_lines consumed them
         ordered = [d for d in sorted(dialogues, key=lambda d: float(d.get("start", 0.0) or 0.0))
                    if clean_script_line(str(d.get("text", "")),

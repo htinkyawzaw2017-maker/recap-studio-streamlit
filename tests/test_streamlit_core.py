@@ -180,15 +180,27 @@ ok(_rep["fixed_ai"] + _rep["fixed_cut"] >= 1,
 ok(estimate_speech_seconds(_fitted[0]["text"], "my") <= 5.0 * 1.15,
    "fitted line now fits its own scene window")
 
-# 13 ── v1.4: retime floor — picture slows further before any freeze
+# 13 ── v1.30: retime — picture slows to 0.60x, voice speeds to 1.2x,
+#       FREEZE IS BANNED (no tpad, span.freeze always 0)
 from recapstudio.retime import compute_spans
-ok(_MVS <= 0.75, f"retime floor allows deeper slowdown ({_MVS}x)")
+ok(_MVS <= 0.60, f"retime floor allows deep slowdown ({_MVS}x)")
 _sp1 = compute_spans([(0.0, 4.0, 5.2, 0)], 4.0)
-ok(abs(_sp1[0].speed - 4.0 / 5.2) < 0.01 and _sp1[0].freeze == 0.0,
-   "5.2s speech in a 4s scene: picture slows, no freeze needed")
-_sp2 = compute_spans([(0.0, 4.0, 6.0, 0)], 4.0)
-ok(abs(_sp2[0].speed - _MVS) < 0.01 and _sp2[0].freeze > 0.5,
-   "extreme overflow: floor speed first, freeze only the remainder")
+ok(abs(_sp1[0].speed - 4.0 / 5.2) < 0.01 and _sp1[0].freeze == 0.0
+   and _sp1[0].tempo == 1.0,
+   "5.2s speech in a 4s scene: picture slows, voice natural, no freeze")
+_sp2 = compute_spans([(0.0, 4.0, 8.0, 0)], 4.0)
+# 8s speech in a 4s scene: picture hits the 0.60x floor (4/0.6 ≈ 6.67s of
+# picture time), then the voice compresses 8 → 6.67s (tempo ≈ 1.2x)
+ok(abs(_sp2[0].speed - _MVS) < 0.01 and _sp2[0].freeze == 0.0,
+   "v1.30 extreme overflow: 0.60x floor, NO freeze (owner rule)")
+ok(_sp2[0].tempo > 1.0 and _sp2[0].tempo <= 1.21,
+   f"v1.30 overflow compresses the VOICE up to 1.2x (tempo {_sp2[0].tempo:.2f}x)")
+# extreme overflow beyond even 1.2x voice: line takes the time it needs —
+# slot extends, text is never cut, still no freeze
+_sp3 = compute_spans([(0.0, 4.0, 12.0, 0)], 4.0)
+ok(_sp3[0].freeze == 0.0 and _sp3[0].tempo == 1.2
+   and _sp3[0].slot_len < 12.0,
+   "v1.30 over-1.2x overflow: tempo capped at 1.2x, slot extends, no freeze")
 
 # 13b ── v1.27: every slot lands on the 30fps frame grid (no accumulated
 #       drift), and the voice is never cut even when the speech needs more
@@ -202,15 +214,20 @@ for _i in range(50):
     _t += _sl
 _frame_ok = True
 for _s in compute_spans(_wins, _t, tighten_pause=0.45):
-    if _s.slot_len < _s.speech - 1e-9:          # voice cut
+    if _s.slot_len < _s.speech - 0.034:         # voice cut (> 1 frame short)
         _frame_ok = False
     if not (0.5 <= _s.speed <= 1.0):            # sped up / over-slowed
         _frame_ok = False
-ok(_frame_ok, "v1.27 spans: voice never cut, speed stays 0.5–1.0x")
-# near-fit overrun that used to get silently truncated mid-word:
+    if _s.freeze != 0.0:                        # v1.30: freeze banned
+        _frame_ok = False
+ok(_frame_ok, "v1.30 spans: voice never cut, picture 0.5–1.0x, ZERO freeze")
+# near-fit overrun that used to get silently truncated mid-word — the
+# voice may run a hair past its slot rather than be cut (owner rule: text
+# is NEVER shortened; spill into the following footage, not a freeze)
 _edge = compute_spans([(0.0, 3.576, 3.595, 0)], 3.576)
-ok(_edge[0].slot_len >= 3.595 and _edge[0].speed <= 1.0,
-   "near-fit overrun: slot holds full speech, picture stays 1.0x/frozen")
+ok(_edge[0].freeze == 0.0 and _edge[0].tempo == 1.0
+   and _edge[0].src_len >= 3.5,
+   "near-fit overrun: no freeze, voice natural, ~full slot — voice spills a frame, never cut")
 
 # 13c ── v1.28: FULL-TRANSLATION dubbing — every output language works, and
 #       minute-fit NEVER shortens a translated (dubbing) line.

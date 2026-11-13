@@ -921,11 +921,17 @@ else:
             _status.update(label="🎬 ဗီဒီယို Render လုပ်နေပါသည်… (အရှည်ပေါ် မူတည်ပြီး ကြာနိုင်ပါသည်)")
             _out = _job / "recap_final.mp4"
             _plain = _job / "recap_plain.mp4"
+            # v1.30: "🎵 နောက်ခံ ထားမည်" keeps background music/ambience —
+            # it must NOT mute the original track. When keep_bg is on the
+            # original audio goes through the karaoke filter instead of the
+            # mute_original short-circuit (which killed all background sound).
+            _keep_bg = bool(_cfg.get("keep_bg", False))
+            _mute_org = bool(_cfg.get("mute_org", True)) and not _keep_bg
             _res = render_master(
                 _render_in, str(_narration), str(_plain),
                 ass_path=None,
-                reframe=_reframe, mute_original=bool(_cfg.get("mute_org", True)),
-                remove_vocals=bool(_cfg.get("keep_bg", False)),
+                reframe=_reframe, mute_original=_mute_org,
+                remove_vocals=_keep_bg,
                 mirror=bool(_cfg.get("mirror", False)),
                 quality="fast", target_size=_size, duration=_total, progress=_rp)
             # ── စာတန်း ထည့်ခြင်း (v1.4): libass က မြန်မာ အက္ခရာ ပုံသွင်း
@@ -968,8 +974,8 @@ else:
                     render_master(
                         _render_in, str(_narration), str(_out),
                         ass_path=str(_ass),
-                        reframe=_reframe, mute_original=bool(_cfg.get("mute_org", True)),
-                        remove_vocals=bool(_cfg.get("keep_bg", False)),
+                        reframe=_reframe, mute_original=_mute_org,
+                        remove_vocals=_keep_bg,
                         mirror=bool(_cfg.get("mirror", False)),
                         quality="fast", target_size=_size, duration=_total, progress=_rp)
                     _sub_note = "⚠️ Raqm မရှိလို့ စာတန်းကို ASS နည်းဟောင်းနဲ့ ထည့်ထားပါတယ်"

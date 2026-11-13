@@ -383,7 +383,11 @@ class RecapPipeline:
                 logo_path=str(config.resolve(logo_path)) if logo_path else None,
                 logo_pos=logo_pos,
                 reframe=payload.get("reframe_mode", "Smart Blur Background"),
-                mute_original=bool(payload.get("mute_original", True)),
+                # v1.30: keep-background overrides mute (music/ambience must
+                # stay; only the dialogue voice is removed via karaoke)
+                mute_original=bool(payload.get("mute_original", True))
+                              and not bool(payload.get("remove_vocals", False)),
+                remove_vocals=bool(payload.get("remove_vocals", False)),
                 keep_original_level=float(payload.get("original_level", 0.12)),
                 narration_gain=float(payload.get("narration_gain", 1.3)),
                 quality=quality,
@@ -710,7 +714,11 @@ class RecapPipeline:
                 logo_path=str(config.resolve(logo_path)) if logo_path else None,
                 logo_pos=logo_pos,
                 reframe=payload.get("reframe_mode", job.request.get("reframe_mode", "Smart Blur Background")),
-                mute_original=bool(payload.get("mute_original", True)),
+                mute_original=bool(payload.get("mute_original", True))
+                              and not bool(payload.get("remove_vocals",
+                                                job.request.get("remove_vocals", False))),
+                remove_vocals=bool(payload.get("remove_vocals",
+                                               job.request.get("remove_vocals", False))),
                 keep_original_level=float(payload.get("original_level", 0.12)),
                 narration_gain=float(payload.get("narration_gain", 1.3)),
                 quality=payload.get("quality", job.request.get("quality", "balanced")),

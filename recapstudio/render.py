@@ -130,7 +130,11 @@ def _audio_filter(input_has_audio: bool, mute_original: bool, keep_original_leve
         # (karaoke filter) so the DIALOGUE voice is mostly removed while
         # music/ambience (stereo-wide content) survives — then ducking keeps
         # whatever residual speech remains quiet under the dub voice.
-        src_prep = ("karaoke=0.9,"
+        # v1.30: keep-background — remove the dialogue voice (centre channel)
+        # but never kill the whole track. karaoke can over-cancel on clips
+        # whose speech isn't dead-centre or is mono, wiping the music too;
+        # a gentler 0.75 keeps ambience while still lowering the voice a lot.
+        src_prep = (f"karaoke={float(os.getenv('RECAP_KARAOKE_AMOUNT', '0.75')):.2f},"
                     "aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo"
                     if remove_vocals else
                     "aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo")
@@ -143,7 +147,7 @@ def _audio_filter(input_has_audio: bool, mute_original: bool, keep_original_leve
         ), "aout"
     if remove_vocals:
         return (
-            "[0:a]karaoke=0.9,"
+            f"[0:a]karaoke={float(os.getenv('RECAP_KARAOKE_AMOUNT', '0.75')):.2f},"
             "aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,"
             f"volume={keep_original_level:.2f}[sfx];"
             "[1:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,"
