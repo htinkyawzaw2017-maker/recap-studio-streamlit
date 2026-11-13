@@ -164,19 +164,78 @@ def transcribe(audio, model_name="large-v3-turbo", language=None):
     raise last_err
 
 
+def _seg_key(seg):
+    return round(float(seg.get("start", 0.0)), 1)
+
+
+def _missing_segments(segments, clean):
+    """Source segment indexes that got NO dub line back (truncation/drops)."""
+    got = {_seg_key(d) for d in clean}
+    return [i for i, s in enumerate(segments) if _seg_key(s) not in got]
+
+
+def _target_lang_name(target_lang):
+    return {
+        "my": "MYANMAR", "en": "ENGLISH", "zh": "CHINESE (Mandarin)",
+        "ja": "JAPANESE", "ko": "KOREAN", "es": "SPANISH", "fr": "FRENCH",
+        "de": "GERMAN", "pt": "PORTUGUESE", "ru": "RUSSIAN", "hi": "HINDI",
+        "ar": "ARABIC", "id": "INDONESIAN", "th": "THAI",
+    }.get((target_lang or "my").lower()[:2], str(target_lang or "MYANMAR").upper())
+
+
+def _translate_subset(subset, api_key, model_name, target_lang="my"):
+    """Translate just the given source segments (used to re-ask the missing
+    tail after a truncated response). Returns the new clean rows."""
+    if not subset:
+        return []
+    import json as _json
+    from google import genai as _g
+    client = _g.Client(api_key=api_key)
+    tgt = _target_lang_name(target_lang)
+    prompt = (
+        f"You are a professional dubbing scriptwriter. Translate the transcript below into NATURAL SPOKEN {tgt} for dubbing.\n"
+        "Rules: one output line per input segment, same start/end; each line must be ONE COMPLETE sentence "
+        "(never a dangling fragment); natural retelling, never word-for-word literal translation; "
+        "never invent new meaning; never merge two segments into one line; keep names as spoken. "
+        "Render the FULL meaning — never shorten, summarise or drop any sentence. "
+        "Return ONLY a JSON array of {start, end, text} — EVERY segment gets one line.\n\n"
+        + _json.dumps(subset, ensure_ascii=False))
+    for _ in range(3):
+        try:
+            resp = client.models.generate_content(
+                model=model_name, contents=prompt,
+                config={"response_mime_type": "application/json"})
+            raw = (getattr(resp, "text", None) or "").strip()
+            if not raw:
+                continue
+            if raw.startswith("```"):
+                raw = "\n".join(raw.splitlines()[1:-1])
+            data = _json.loads(raw) if raw.startswith("[") else _json.loads(raw)
+            if isinstance(data, list):
+                return [d for d in data
+                        if isinstance(d, dict)
+                        and isinstance(d.get("start"), (int, float))
+                        and str(d.get("text", "")).strip()]
+        except Exception:
+            continue
+    return []
+
+
 # ── 3. Gemini text-only translation ──────────────────────────────────
-def translate(segments, api_key, model_name="gemini-2.5-flash-lite"):
+def translate(segments, api_key, model_name="gemini-2.5-flash-lite", target_lang="my"):
     from google import genai
     if not api_key:
         raise ValueError("GEMINI_API_KEY is missing — add it in Colab Secrets.")
     if not segments:
         return []
     client = genai.Client(api_key=api_key)
+    tgt = _target_lang_name(target_lang)
     prompt = (
-        "You are a Myanmar dubbing scriptwriter. Translate the transcript below into NATURAL SPOKEN MYANMAR for dubbing.\n"
+        f"You are a professional dubbing scriptwriter. Translate the transcript below into NATURAL SPOKEN {tgt} for dubbing.\n"
         "Rules: one output line per input segment, same start/end; each line must be ONE COMPLETE sentence "
         "(never a dangling fragment); natural retelling, never word-for-word literal translation; "
         "never invent new meaning; never merge two segments into one line; keep names as spoken. "
+        "Render the FULL meaning — never shorten, summarise or drop any sentence or clause. "
         "Return ONLY a JSON array of {start, end, text}.\n\n"
         + json.dumps(segments, ensure_ascii=False))
 
@@ -217,6 +276,24 @@ def translate(segments, api_key, model_name="gemini-2.5-flash-lite"):
                      and str(d.get("text", "")).strip()]
             if not clean:
                 raise RuntimeError("Gemini dub script had no usable {start,end,text} rows")
+            # v2.10: completeness check — a truncated/salvaged response can
+            # silently DROP segments (usually the tail). Re-ask ONLY for the
+            # missing segment indexes so every source line gets a dub line.
+            missing = _missing_segments(segments, clean)
+            for _retry in range(2):
+                if not missing:
+                    break
+                subset = [segments[i] for i in missing]
+                patch = _translate_subset(subset, api_key, model_name, target_lang)
+                if not patch:
+                    break
+                clean.extend(patch)
+                missing = _missing_segments(segments, clean)
+            if missing:
+                raise RuntimeError(
+                    f"Gemini dub script is INCOMPLETE: {len(missing)} of "
+                    f"{len(segments)} source segments have no translation "
+                    f"(indexes {missing[:8]}...). Not rendering a partial dub.")
             return clean
         except Exception as e:  # JSONDecodeError, empty response, AND API/quota errors
             last_err = e
@@ -333,11 +410,21 @@ def mix_and_srt(dub, clips_dir, duration, src, mute_original, work):
                 break
         window_end = next_start if next_start is not None else dur_ms
         max_len = max(200, window_end - start_ms - GAP_MS)
-        if len(clip) > max_len:
-            # too long for its window — trim with a soft fade so it doesn't
-            # chop mid-syllable or run under the next line.
+        # v2.10: never cut a translated sentence unless a real overlap forces
+        # it. window_end is the next line's start (or video end), so a clip
+        # longer than the window would bleed INTO the next speaker's turn.
+        if next_start is not None and len(clip) > max_len:
+            # genuine overlap: end just before the next turn (soft fade) —
+            # the only cut that keeps one voice at a time. The Streamlit app
+            # handles the same case by retiming the picture instead.
             clip = clip[:max_len].fade_out(120)
-            print(f"[mix] clip {i} trimmed to {max_len/1000:.2f}s to avoid overlap")
+            print(f"[mix] clip {i} would overlap next turn — tail faded at "
+                  f"{max_len/1000:.2f}s")
+        elif next_start is None and len(clip) > max_len:
+            # last line overrunning the video end: keep the full sentence
+            # (the muxer's -t trims at the container level, not mid-word —
+            # but keep the clip whole so the SRT time matches the speech)
+            print(f"[mix] clip {i} runs past video end — kept in full")
         mix = mix.overlay(clip, position=start_ms)
         srt.append(f"{i + 1}\n{srt_ts(d['start'])} --> {srt_ts(d['end'])}\n{d['text']}\n")
         added += 1
@@ -408,9 +495,13 @@ def run_all(video_file=None, youtube_url="", voice="my-MM-NilarNeural",
             make_shorts_flag=True, api_key=None,
             gemini_model="gemini-2.5-flash-lite",
             whisper_model="large-v3-turbo", language=None,
+            target_lang="my",
             flip=True, color=True, mute_original=True,
             output_name="recap_dubbed", work="/content/work_ui"):
-    """Run the whole pipeline. Returns (main_mp4|None, shorts_mp4|None, log)."""
+    """Run the whole pipeline. Returns (main_mp4|None, shorts_mp4|None, log).
+
+    ``language`` is the SOURCE speech language hint for Whisper (None = auto
+    detect); ``target_lang`` is the dubbing OUTPUT language (v2.10)."""
     os.makedirs(work, exist_ok=True)
     log = []
     try:
@@ -435,13 +526,34 @@ def run_all(video_file=None, youtube_url="", voice="my-MM-NilarNeural",
             raise RuntimeError(
                 "Whisper found no speech in this video — there is nothing to "
                 "dub. Is this a music/silent clip, or is LANGUAGE set wrong?")
-        dub = translate(transcript, api_key, gemini_model)
+        dub = translate(transcript, api_key, gemini_model, target_lang)
         json.dump(dub, open(os.path.join(work, "dub_script.json"), "w"),
                   ensure_ascii=False, indent=1)
-        log.append(f"gemini dub lines: {len(dub)}")
+        log.append(f"gemini dub lines: {len(dub)} ({_target_lang_name(target_lang)})")
         if not dub:
             raise RuntimeError("Gemini returned no dub lines — cannot continue.")
-        failed = synthesize(dub, voice, os.path.join(work, "clips"))
+        # v2.10: the TTS voice must speak the OUTPUT language. A voice left
+        # on the my-MM default while dubbing into zh/ja/en produced garbled
+        # or silent takes — pick the language's default voice unless the
+        # caller named a voice that actually matches the target language.
+        def _voice_for(lang):
+            defaults = {
+                "my": "my-MM-NilarNeural", "en": "en-US-JennyNeural",
+                "zh": "zh-CN-XiaoxiaoNeural", "ja": "ja-JP-NanamiNeural",
+                "ko": "ko-KR-SunHiNeural", "es": "es-ES-ElviraNeural",
+                "fr": "fr-FR-DeniseNeural", "de": "de-DE-KatjaNeural",
+                "pt": "pt-BR-FranciscaNeural", "ru": "ru-RU-SvetlanaNeural",
+                "hi": "hi-IN-SwaraNeural", "ar": "ar-SA-ZariyahNeural",
+                "id": "id-ID-GadisNeural", "th": "th-TH-PremwadeeNeural",
+            }
+            return defaults.get((lang or "my").lower()[:2], defaults["my"])
+        lang_prefix = (target_lang or "my").lower()[:2]
+        tts_voice = voice if (voice or "").lower().startswith(lang_prefix) \
+            else _voice_for(target_lang)
+        if tts_voice != voice:
+            log.append(f"voice {voice} does not speak "
+                       f"{_target_lang_name(target_lang)} — using {tts_voice}")
+        failed = synthesize(dub, tts_voice, os.path.join(work, "clips"))
         log.append(f"tts ok: {len(dub) - len(failed)} / {len(dub)}"
                    + (f" (failed: {len(failed)})" if failed else ""))
         if failed:
@@ -449,7 +561,7 @@ def run_all(video_file=None, youtube_url="", voice="my-MM-NilarNeural",
                 log.append(f"  FAILED clip {f[0]}: {f[2]}")
             raise RuntimeError(
                 f"{len(failed)}/{len(dub)} TTS clips failed for voice "
-                f"{voice} — the Burmese voiceover would be MUTE. "
+                f"{tts_voice} — the voiceover would be MUTE. "
                 "Try the other voice or run again.")
         dub_track, _, n_srt = mix_and_srt(
             dub, os.path.join(work, "clips"), duration, src, mute_original, work)

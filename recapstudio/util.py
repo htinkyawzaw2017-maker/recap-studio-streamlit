@@ -239,8 +239,14 @@ def clamp(value: float, low: float, high: float) -> float:
 #: window, which is one of the reasons narration ran out of sync. v1.7:
 #: Burmese recalibrated to 12.0 (Myanmar read-speech corpus ≈13 chars/s,
 #: arXiv:2105.06253, minus pause headroom) and aligned with tts.py so the
-#: estimator and the budget never disagree again.
-CHARS_PER_SECOND = {"my": 12.0, "en": 13.5}
+#: estimator and the budget never disagree again. v1.28: every target
+#: language gets its own rate so windows fit in any dubbing output language.
+CHARS_PER_SECOND = {
+    "my": 12.0, "en": 13.5,
+    "zh": 4.2, "ja": 6.5, "ko": 8.0,
+    "es": 13.5, "fr": 13.5, "de": 13.0, "pt": 13.5, "ru": 12.5,
+    "hi": 12.0, "ar": 12.0, "id": 13.5, "th": 11.0,
+}
 
 
 def estimate_speech_seconds(text: str, lang: str = "my", chars_per_second: float = 0.0) -> float:
@@ -252,10 +258,12 @@ def estimate_speech_seconds(text: str, lang: str = "my", chars_per_second: float
         rate = chars_per_second
     else:
         import os as _os
-        env_rate = _os.getenv("RECAP_MM_CHARS_PER_SEC" if lang == "my" else "RECAP_EN_CHARS_PER_SEC")
+        env_rate = _os.getenv(f"RECAP_{str(lang).upper()[:2]}_CHARS_PER_SEC"
+                              or "RECAP_CHARS_PER_SEC")
         try:
-            rate = float(env_rate) if env_rate else CHARS_PER_SECOND.get(lang, 12.0)
+            rate = float(env_rate) if env_rate else CHARS_PER_SECOND.get(
+                str(lang).lower()[:2], 12.0)
         except (TypeError, ValueError):
-            rate = CHARS_PER_SECOND.get(lang, 12.0)
+            rate = CHARS_PER_SECOND.get(str(lang).lower()[:2], 12.0)
     # Digits / punctuation are spoken differently but this is only a hint.
     return max(0.6, len(text) / max(1.0, rate))

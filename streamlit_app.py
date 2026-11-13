@@ -59,6 +59,15 @@ from recapstudio.tts import (  # noqa: E402
 )
 from recapstudio.util import human_bytes, human_time  # noqa: E402
 
+#: output-language labels for the dubbing/recap selector (v1.28 any-language)
+LANG_LABELS = {
+    "my": "🇲🇲 မြန်မာ", "en": "🇬🇧 English", "zh": "🇨🇳 中文",
+    "ja": "🇯🇵 日本語", "ko": "🇰🇷 한국어", "es": "🇪🇸 Español",
+    "fr": "🇫🇷 Français", "de": "🇩🇪 Deutsch", "pt": "🇧🇷 Português",
+    "ru": "🇷🇺 Русский", "hi": "🇮🇳 हिन्दी", "ar": "🇸🇦 العربية",
+    "id": "🇮🇩 Indonesia", "th": "🇹🇭 ไทย",
+}
+
 recap_config.ensure_dirs()
 WORK_DIR = DATA_DIR / "streamlit_jobs"
 WORK_DIR.mkdir(parents=True, exist_ok=True)
@@ -619,16 +628,19 @@ else:
                f"{_ci['width']}×{_ci['height']}")
     _r1, _r2, _r3 = st.columns(3)
     with _r1:
-        lang_label = st.segmented_control(
-            "Recap ဘာသာစကား",
-            ["🇲🇲 မြန်မာ", "🇬🇧 English"], default="🇲🇲 မြန်မာ")
-        lang = "my" if lang_label and "မြန်မာ" in lang_label else "en"
+        # v1.28: any output language (dubbing အပြည့်အစုံ ဘာသာပြန်မှုအတွက်) —
+        # ရွေးချယ်လိုက်တဲ့ ဘာသာစကားအတိုင်း AI က ဘာသာပြန်ပြီး အသံ အလိုအလျောက်
+        # ထိုဘာသာရဲ့ voice နဲ့ ထွက်ပါမယ်။
+        lang = st.selectbox("ဘာသာပြန် ထွက်ရမည့် ဘာသာ",
+                            list(LANG_LABELS.keys()),
+                            format_func=lambda k: LANG_LABELS[k],
+                            index=0)
     with _r2:
         mode_label = st.radio("Mode", ["🎬 Recap (ဇာတ်လမ်း ပြန်ပြော)", "🎭 Dubbing (စကား ဘာသာပြန်)"],
                               help="Recap = တစ်ချိန်လုံး narration • Dubbing = မူရင်း စကားပြောချိန်အတိုင်း ဘာသာပြန်")
         fill_mode = "continuous" if mode_label.startswith("🎬") else "dialogue"
     with _r3:
-        _voices = VOICE_CATALOG[lang]
+        _voices = VOICE_CATALOG.get(lang) or VOICE_CATALOG["my"]
         voice_key = st.selectbox("🎙️ အသံ", list(_voices.keys()),
                                  format_func=lambda k: _voices[k]["name"])
     _r4, _r5, _r6, _r7 = st.columns(4)
@@ -852,9 +864,11 @@ else:
     _lang = _cfg.get("lang", "my")
     _info = current_info()
     _dur = float(_info["duration"]) if _info else 0.0
+    _vcats = VOICE_CATALOG.get(_lang) or VOICE_CATALOG["my"]
+    _vkey = _cfg.get("voice_key") or next(iter(_vcats))
     st.success(f"📝 အတည်ပြုပြီး Script: **{len(SS['edited_dialogues'])} လိုင်း** • "
-               f"ဘာသာစကား: **{'မြန်မာ' if _lang == 'my' else 'English'}** • "
-               f"အသံ: **{VOICE_CATALOG[_lang][_cfg.get('voice_key', 'thiha' if _lang == 'my' else 'christopher')]['name']}**")
+               f"ဘာသာစကား: **{LANG_LABELS.get(_lang, _lang)}** • "
+               f"အသံ: **{_vcats[_vkey]['name']}**")
     st.markdown('<div class="bigbtn">', unsafe_allow_html=True)
     _render = st.button("🎬 Render စတင်မည်", use_container_width=True, disabled=BUSY)
     st.markdown('</div>', unsafe_allow_html=True)

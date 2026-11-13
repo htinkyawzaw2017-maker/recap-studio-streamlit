@@ -76,6 +76,31 @@ class RecapPipeline:
     def _cancel(self, job_id: str):
         return lambda: self.store.is_cancelled(job_id)
 
+    def _region_reanalyse(self, job_id: str, windows: list[dict],
+                          payload: dict[str, Any]) -> list[dict]:
+        """Re-ask the AI about specific time windows (v1.28 dub gate repair).
+
+        Used when the dubbing completeness gate finds holes in the translated
+        timeline: the model looks at each window's actual video/audio and
+        returns the missing translated turns.
+        """
+        from .ai import repair_timeline
+        store = self.store
+        job = store.get(job_id)
+        return repair_timeline(
+            video_path=str(config.resolve(payload.get("input_video", ""))),
+            duration=float(payload.get("_duration") or 0.0) or (job.duration if job else 0.0),
+            language=payload.get("lang", "my"),
+            mode=payload.get("mode", "auto"),
+            fill_mode="dialogue",
+            model=payload.get("model") or "",
+            gaps=windows,
+            progress=lambda pct, msg: None,
+            cancel=self._cancel(job_id),
+            log_fn=lambda msg: self.store.log(job_id, msg),
+            key_ring=key_ring if not payload.get("api_key") else None,
+        )
+
     # ── main entry ─────────────────────────────────────────────────────
     def run_recap(self, job_id: str, payload: dict[str, Any]) -> None:
         store = self.store
@@ -149,16 +174,75 @@ class RecapPipeline:
                     "AI မှ စကားပြောခန်း ရှာမတွေ့ပါ။ ဗီဒီယိုတွင် စကားပြောခန်း မပါဝင်နိုင်ပါ "
                     "သို့မဟုတ် AI model ကို ပြောင်း၍ ပြန်စမ်းပါ။"
                 )
+            # v1.28 pre-TTS completeness gate: a full-translation dub must
+            # have every turn present, in order, reaching the video end —
+            # before any voice is synthesised. Missing windows get ONE
+            # re-analysis pass; if the script is still broken the job fails
+            # loudly instead of silently shipping a partial dub.
+            if fill_mode == "dialogue" and not config.settings.demo_mode:
+                from .ai import validate_dubbing_script
+                gate = validate_dubbing_script(dialogues, duration,
+                                               payload.get("lang", "my"))
+                store.log(job_id, f"🔍 Dub script gate: {gate['lines']} lines, "
+                                  f"empty {len(gate['empty_lines'])}, unordered "
+                                  f"{gate['unordered']}, fragments "
+                                  f"{len(gate['fragments'])}, tail {gate['tail_gap']}s")
+                if not gate["complete"] and gate["missing_windows"] and self._region_reanalyse:
+                    try:
+                        extra = self._region_reanalyse(
+                            job_id, gate["missing_windows"], payload)
+                        if extra:
+                            dialogues = normalise_dialogues(list(dialogues) + extra,
+                                                            duration)
+                            store.log(job_id, f"↻ gate re-analysis added {len(extra)} lines")
+                            gate = validate_dubbing_script(dialogues, duration,
+                                                           payload.get("lang", "my"))
+                    except Exception as exc:
+                        store.log(job_id, f"⚠️ gate re-analysis failed: {exc}")
+                if not gate["complete"]:
+                    problems = []
+                    if gate["empty_lines"]:
+                        problems.append(f"စာလုံးမပါလိုင်း {len(gate['empty_lines'])}")
+                    if gate["unordered"]:
+                        problems.append(f"အစီအစဉ်လွဲ {gate['unordered']}")
+                    if gate["fragments"]:
+                        problems.append(f"မပြီးသေးသော ဝါကျ {len(gate['fragments'])}")
+                    if gate["tail_gap"] > 12.0:
+                        problems.append(f"အဆုံးမရောက် ({gate['tail_gap']:.0f}s ကွက်လပ်)")
+                    store.update(job_id, stats={**store.get(job_id).stats,
+                                                "dub_gate": gate})
+                    store.log(job_id, "⚠️ Dub script မပြီးပြည့်စုံပါ — "
+                              "Timeline Editor မှ စစ်ပြီး ဆက်လက် Render လုပ်နိုင်ပါသည်: "
+                              + ", ".join(problems))
+                else:
+                    store.log(job_id, "✅ Dub script အပြည့်အစုံ ဖြစ်ပါသည်")
+
             coverage = result.get("coverage", {})
-            store.update(job_id, stage="coverage", progress=STAGE_BOUNDS["coverage"][1],
-                         dialogues=dialogues,
-                         hook_line1=result.get("hook_line1", ""),
-                         hook_line2=result.get("hook_line2", ""),
-                         coverage=coverage,
-                         message=f"🧠 စကားပြောခန်း {len(dialogues)} ခု တွေ့ပါသည် "
-                                 f"(coverage {coverage.get('coverage_percent', 0)}%)")
-            store.log(job_id, f"AI timeline: {len(dialogues)} lines, "
-                              f"coverage={coverage.get('coverage_percent')}%")
+            if fill_mode == "dialogue":
+                # v1.28: dubbing coverage % counts quiet intervals as holes,
+                # which they are NOT in dub mode — silence is correct there.
+                # Report translated-turn completeness instead: how many
+                # source turns got a translated line (the AI re-analyses
+                # 8s+ holes; leftover holes are genuine silence).
+                turns = len(dialogues)
+                hole_s = sum(g["end"] - g["start"] for g in coverage.get("quiet_gaps", []))
+                store.update(job_id, stage="coverage", progress=STAGE_BOUNDS["coverage"][1],
+                             dialogues=dialogues,
+                             hook_line1="", hook_line2="",
+                             coverage=coverage,
+                             message=f"🎭 စကားလိုင်း {turns} လိုင်း ဘာသာပြန်ပြီးပါသည် "
+                                     f"(အသံမပါကွက် {hole_s:.0f}s — တကယ့် တိတ်ဆိတ်ချိန်များ)")
+                store.log(job_id, f"Dub timeline: {turns} turns, quiet {hole_s:.0f}s")
+            else:
+                store.update(job_id, stage="coverage", progress=STAGE_BOUNDS["coverage"][1],
+                             dialogues=dialogues,
+                             hook_line1=result.get("hook_line1", ""),
+                             hook_line2=result.get("hook_line2", ""),
+                             coverage=coverage,
+                             message=f"🧠 စကားပြောခန်း {len(dialogues)} ခု တွေ့ပါသည် "
+                                     f"(coverage {coverage.get('coverage_percent', 0)}%)")
+                store.log(job_id, f"AI timeline: {len(dialogues)} lines, "
+                                  f"coverage={coverage.get('coverage_percent')}%")
             self.store.raise_if_cancelled(job_id)
 
             # ── 1b. narration timing (owner rule 2026-10-22) ─────────
@@ -205,8 +289,34 @@ class RecapPipeline:
                                  f"(တိတ်ဆိတ်ချိန် {voice_stats['silent_seconds']}s)")
             for warning in mix.warnings:
                 store.log(job_id, f"⚠️ {warning}")
+            # v1.28 completeness gate (dubbing): a faithful dub must voice
+            # EVERY translated line and reach the end of the video. A line
+            # that produced no audio is missing dialogue, not a warning —
+            # say so plainly and never call the job 100% complete.
+            dub_incomplete = 0
+            if fill_mode == "dialogue":
+                dub_incomplete = sum(1 for p in mix.planned
+                                     if p.skipped or not p.speech_seconds)
+                spanned = max((sp.slot_start + sp.slot_len for sp in mix.spans), default=0.0)
+                tail_gap = max(0.0, duration - max(
+                    (float(d.get("end", 0.0)) for d in dialogues), default=0.0))
+                if dub_incomplete:
+                    store.log(job_id, f"❌ Dubbing incomplete: {dub_incomplete} of "
+                                      f"{len(mix.planned)} translated lines have no audio — "
+                                      f"those turns are MISSING from the dub")
+                if tail_gap > 12.0 and spanned > 0:
+                    store.log(job_id, f"❌ Dubbing incomplete: the last translation ends "
+                                      f"{tail_gap:.0f}s before the video does (…{duration:.0f}s)")
+                if not dub_incomplete and tail_gap <= 12.0:
+                    store.log(job_id, "✅ Dubbing complete: every translated line voiced, "
+                                      "timeline reaches the video end")
             store.update(job_id, stats={**store.get(job_id).stats,
                                         "voice": mix.stats()})
+            if dub_incomplete:
+                store.update(job_id, stats={
+                    **store.get(job_id).stats,
+                    "incomplete": {"dialogue": True, "missing_lines": dub_incomplete},
+                })
             self.store.raise_if_cancelled(job_id)
 
             # ── 3. mix/master audio ───────────────────────────────────

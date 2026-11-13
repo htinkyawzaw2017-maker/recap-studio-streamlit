@@ -59,6 +59,80 @@ VOICE_CATALOG: dict[str, dict[str, dict[str, str]]] = {
         "aria": {"name": "Aria (Calm Narrator)", "voice": "en-US-AriaNeural",
                  "rate": "+0%", "pitch": "+0Hz", "lang": "en", "gender": "FEMALE"},
     },
+    # v1.28: full-translation dubbing targets — every entry carries a MALE and
+    # a FEMALE voice so the v1.25 gender casting works in every language.
+    "zh": {
+        "yunxi": {"name": "云希 (Male Narrator)", "voice": "zh-CN-YunxiNeural",
+                  "rate": "+0%", "pitch": "-1Hz", "lang": "zh", "gender": "MALE"},
+        "xiaoxiao": {"name": "晓晓 (Female Expressive)", "voice": "zh-CN-XiaoxiaoNeural",
+                     "rate": "+0%", "pitch": "+1Hz", "lang": "zh", "gender": "FEMALE"},
+    },
+    "ja": {
+        "keita": {"name": "圭太 (Male Narrator)", "voice": "ja-JP-KeitaNeural",
+                  "rate": "+0%", "pitch": "-1Hz", "lang": "ja", "gender": "MALE"},
+        "nanami": {"name": "七海 (Female Expressive)", "voice": "ja-JP-NanamiNeural",
+                   "rate": "+0%", "pitch": "+1Hz", "lang": "ja", "gender": "FEMALE"},
+    },
+    "ko": {
+        "injoon": {"name": "인준 (Male Narrator)", "voice": "ko-KR-InJoonNeural",
+                   "rate": "+0%", "pitch": "-1Hz", "lang": "ko", "gender": "MALE"},
+        "sunhi": {"name": "선히 (Female Expressive)", "voice": "ko-KR-SunHiNeural",
+                  "rate": "+0%", "pitch": "+1Hz", "lang": "ko", "gender": "FEMALE"},
+    },
+    "es": {
+        "alvaro": {"name": "Álvaro (Male Narrator)", "voice": "es-ES-AlvaroNeural",
+                   "rate": "+0%", "pitch": "-1Hz", "lang": "es", "gender": "MALE"},
+        "elvira": {"name": "Elvira (Female Expressive)", "voice": "es-ES-ElviraNeural",
+                   "rate": "+0%", "pitch": "+1Hz", "lang": "es", "gender": "FEMALE"},
+    },
+    "fr": {
+        "henri": {"name": "Henri (Male Narrator)", "voice": "fr-FR-HenriNeural",
+                  "rate": "+0%", "pitch": "-1Hz", "lang": "fr", "gender": "MALE"},
+        "denise": {"name": "Denise (Female Expressive)", "voice": "fr-FR-DeniseNeural",
+                   "rate": "+0%", "pitch": "+1Hz", "lang": "fr", "gender": "FEMALE"},
+    },
+    "de": {
+        "conrad": {"name": "Conrad (Male Narrator)", "voice": "de-DE-ConradNeural",
+                   "rate": "+0%", "pitch": "-1Hz", "lang": "de", "gender": "MALE"},
+        "katja": {"name": "Katja (Female Expressive)", "voice": "de-DE-KatjaNeural",
+                  "rate": "+0%", "pitch": "+1Hz", "lang": "de", "gender": "FEMALE"},
+    },
+    "hi": {
+        "madhur": {"name": "मधुर (Male Narrator)", "voice": "hi-IN-MadhurNeural",
+                   "rate": "+0%", "pitch": "-1Hz", "lang": "hi", "gender": "MALE"},
+        "swara": {"name": "स्वरा (Female Expressive)", "voice": "hi-IN-SwaraNeural",
+                  "rate": "+0%", "pitch": "+1Hz", "lang": "hi", "gender": "FEMALE"},
+    },
+    "pt": {
+        "antonio": {"name": "Antônio (Male Narrator)", "voice": "pt-BR-AntonioNeural",
+                    "rate": "+0%", "pitch": "-1Hz", "lang": "pt", "gender": "MALE"},
+        "francisca": {"name": "Francisca (Female Expressive)", "voice": "pt-BR-FranciscaNeural",
+                      "rate": "+0%", "pitch": "+1Hz", "lang": "pt", "gender": "FEMALE"},
+    },
+    "ru": {
+        "dmitry": {"name": "Дмитрий (Male Narrator)", "voice": "ru-RU-DmitryNeural",
+                   "rate": "+0%", "pitch": "-1Hz", "lang": "ru", "gender": "MALE"},
+        "svetlana": {"name": "Светлана (Female Expressive)", "voice": "ru-RU-SvetlanaNeural",
+                     "rate": "+0%", "pitch": "+1Hz", "lang": "ru", "gender": "FEMALE"},
+    },
+    "ar": {
+        "hamed": {"name": "حامد (Male Narrator)", "voice": "ar-SA-HamedNeural",
+                  "rate": "+0%", "pitch": "-1Hz", "lang": "ar", "gender": "MALE"},
+        "zariyah": {"name": "زارية (Female Expressive)", "voice": "ar-SA-ZariyahNeural",
+                    "rate": "+0%", "pitch": "+1Hz", "lang": "ar", "gender": "FEMALE"},
+    },
+    "id": {
+        "ardi": {"name": "Ardi (Male Narrator)", "voice": "id-ID-ArdiNeural",
+                 "rate": "+0%", "pitch": "-1Hz", "lang": "id", "gender": "MALE"},
+        "gadis": {"name": "Gadis (Female Expressive)", "voice": "id-ID-GadisNeural",
+                  "rate": "+0%", "pitch": "+1Hz", "lang": "id", "gender": "FEMALE"},
+    },
+    "th": {
+        "niwat": {"name": "นิวัฒน์ (Male Narrator)", "voice": "th-TH-NiwatNeural",
+                  "rate": "+0%", "pitch": "-1Hz", "lang": "th", "gender": "MALE"},
+        "premwadee": {"name": "เปรมวดี (Female Expressive)", "voice": "th-TH-PremwadeeNeural",
+                      "rate": "+0%", "pitch": "+1Hz", "lang": "th", "gender": "FEMALE"},
+    },
 }
 
 PHONETICS_MM = {
@@ -80,7 +154,15 @@ PHONETICS_MM = {
 #: English ~14.5 (≈2.6 words/s). Everything that plans *how much text* may
 #: sit inside a window derives from these numbers, so the AI, the subtitle
 #: writer and the voice engine all agree instead of each guessing.
-CHARS_PER_SECOND = {"my": 12.0, "en": 14.5}
+# v1.28: per-language speaking rates so every target language gets a sane
+# window budget (Burmese packs a syllable per glyph → low CPS; CJK scripts
+# are denser → higher CPS; alphabetic languages sit in the middle).
+CHARS_PER_SECOND = {
+    "my": 12.0, "en": 14.5,
+    "zh": 4.2, "ja": 6.5, "ko": 8.0,
+    "es": 13.5, "fr": 13.5, "de": 13.0, "pt": 13.5, "ru": 12.5,
+    "hi": 12.0, "ar": 12.0, "id": 13.5, "th": 11.0,
+}
 #: how much faster than natural we are willing to read before it sounds rushed
 COMFORT_SPEEDUP = 1.12
 
@@ -395,8 +477,14 @@ class TTSEngine:
                 continue
             # v1.25: carry the AI's speaker gender tag (Option A)
             speaker = str(item.get("speaker", "") or "").strip().upper()
-            cleaned.append((start, float(item.get("end", start + 2.5) or start + 2.5),
-                            text, speaker))
+            try:
+                end = float(item.get("end", start + 2.5) or start + 2.5)
+            except (TypeError, ValueError):
+                end = start + 2.5
+            # v1.28: never let a window end past the video — a dub line
+            # stamped at the duration used to overrun into dead air.
+            end = min(duration, max(start + 0.05, end))
+            cleaned.append((start, end, text, speaker))
 
         planned: list[PlannedLine] = []
         guard = 0.06

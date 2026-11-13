@@ -244,7 +244,7 @@ sys.path.insert(0, "/kaggle/working")
 import recap_pipe as rp
 from kaggle_secrets import UserSecretsClient
 
-def ui_run(video_file, youtube_url, voice, wmodel, make_shorts):
+def ui_run(video_file, youtube_url, voice, wmodel, make_shorts, target_lang):
     try:
         api_key = UserSecretsClient().get_value("GEMINI_API_KEY")
     except Exception:
@@ -253,15 +253,24 @@ def ui_run(video_file, youtube_url, voice, wmodel, make_shorts):
         video_file=video_file, youtube_url=youtube_url, voice=voice,
         whisper_model=wmodel,
         make_shorts_flag=make_shorts, api_key=api_key,
+        target_lang=target_lang,
         work="/kaggle/working/work_ui")
     return main, shorts, log
 
 with gr.Blocks(title="Recap Dubbing") as demo:
-    gr.Markdown("Upload a video OR paste a YouTube URL, pick a voice + Whisper model, press Run dubbing.")
+    gr.Markdown("Upload a video OR paste a YouTube URL, pick an output language + voice, press Run dubbing. "
+                "The original speech is fully translated (never summarised) and replaced by an AI voice.")
     video_file = gr.File(label="Video file (leave empty if using a URL)")
     youtube_url = gr.Textbox(label="YouTube URL (optional)")
+    target_lang = gr.Dropdown(
+        [("my", "🇲🇲 Myanmar"), ("en", "🇬🇧 English"), ("zh", "🇨🇳 Chinese"),
+         ("ja", "🇯🇵 Japanese"), ("ko", "🇰🇷 Korean"), ("es", "🇪🇸 Spanish"),
+         ("fr", "🇫🇷 French"), ("de", "🇩🇪 German"), ("pt", "🇧🇷 Portuguese"),
+         ("ru", "🇷🇺 Russian"), ("hi", "🇮🇳 Hindi"), ("ar", "🇸🇦 Arabic"),
+         ("id", "🇮🇩 Indonesian"), ("th", "🇹🇭 Thai")],
+        value="my", label="Output language (ဘာသာပြန် ဘာသာ)")
     voice = gr.Dropdown(["my-MM-NilarNeural", "my-MM-ThihaNeural"],
-                        value="my-MM-NilarNeural", label="Voice")
+                        value="my-MM-NilarNeural", label="Voice (optional override)")
     wmodel = gr.Dropdown(["large-v3-turbo", "medium", "small"],
                          value="large-v3-turbo", label="Whisper model")
     make_shorts = gr.Checkbox(value=True, label="Also make 9:16 Shorts")
@@ -269,7 +278,7 @@ with gr.Blocks(title="Recap Dubbing") as demo:
     out_main = gr.Video(label="Dubbed video")
     out_shorts = gr.Video(label="9:16 Shorts")
     log = gr.Textbox(label="Status")
-    btn.click(ui_run, [video_file, youtube_url, voice, wmodel, make_shorts],
+    btn.click(ui_run, [video_file, youtube_url, voice, wmodel, make_shorts, target_lang],
               [out_main, out_shorts, log])
 demo.launch(share=True)
 '''.replace("PIPE_URL_PLACEHOLDER", PIPE_URL)))

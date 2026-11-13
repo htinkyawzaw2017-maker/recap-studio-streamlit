@@ -601,13 +601,35 @@ FILL_MODE_PROMPTS = {
 }
 
 
+# v1.28: target-language names for prompts. Any language the user picks gets
+# a proper instruction — a missing code used to collapse to English and break
+# every non-English dub into English narration.
+_LANGUAGE_NAMES = {
+    "my": "Burmese", "en": "English", "zh": "Chinese (Mandarin)",
+    "ja": "Japanese", "ko": "Korean", "es": "Spanish", "fr": "French",
+    "de": "German", "pt": "Portuguese", "ru": "Russian", "hi": "Hindi",
+    "ar": "Arabic", "id": "Indonesian", "th": "Thai",
+}
+
+
+def _language_name(code: str) -> str:
+    return _LANGUAGE_NAMES.get((code or "").lower()[:2], code or "English")
+
+
+def _language_instruction(code: str) -> str:
+    if code == "my":
+        return ("Burmese language (မြန်မာစကားပြော အသုံးအနှုန်းသီးသန့်၊ "
+                "သဘာဝကျသော မြန်မာစကားဖြင့်)")
+    return f"natural spoken {_language_name(code)}"
+
+
 def _chunk_prompt(chunk_start: float, chunk_end: float, target_language: str,
                   mode_key: str, fill_mode: str, duration: float,
                   boundary_hint: str = "") -> str:
-    lang_instruction = (
-        "Burmese language (မြန်မာစကားပြော အသုံးအနှုန်းသီးသန့်၊ သဘာဝကျသော မြန်မာစကားဖြင့်)"
-        if target_language == "my" else "natural spoken English"
-    )
+    # v1.28: accept any target language — not just my/en. A missing entry
+    # used to collapse to "natural spoken English" which broke every
+    # non-English dub into English narration.
+    lang_instruction = _language_instruction(target_language)
     style_block = ""
     if target_language == "my" and fill_mode == "continuous":
         try:
@@ -673,6 +695,17 @@ RECAP VOICE — NON-NEGOTIABLE:
 - No caption-style scraps: an entry that only names a person, place or time ("He was everyone.", "At that moment.") is banned — fold it into the sentence about what happens. Fill at least ~70% of each entry's character budget, especially the OPENING entries: the beginning must read with the same fullness as the middle, never like reading titles or scene labels.
 - BANNED generic filler: "In this video", "Let's see what happens next", "Things take a turn", "Little did he know", "Meanwhile" (without concrete content), or any line that could fit any movie.
 - Concrete details only: names, objects, places, actions. One line = one scene beat. Vary sentence endings; keep it punchy and spoken.'''
+    elif selected_mode == "dialogue":
+        # v1.28: any output language — the voice block names the target so
+        # the model dubs into the right tongue, not Burmese/English.
+        _wl = _language_name(target_language)
+        voice_block = f'''
+DUBBING VOICE — NON-NEGOTIABLE ({_wl}):
+- Translate into idiomatic spoken {_wl} a real actor would say — never literal/translationese.
+- Keep the speaker's emotion, register, intent and turn-taking; output NOTHING not spoken in
+  the source — no narration, no description, no added plot.
+- Each line = one COMPLETE {_wl} sentence with a finished verb — no fragments, no dangling
+  particles. Render the FULL meaning; never compress or drop content to fit the window.'''
     else:
         voice_block = '''
 DUBBING VOICE — NON-NEGOTIABLE:
@@ -680,7 +713,7 @@ DUBBING VOICE — NON-NEGOTIABLE:
 
     from .tts import budget_chars, chars_per_second
     cps = chars_per_second(target_language)
-    lang_word = "Burmese" if target_language == "my" else "English"
+    lang_word = _language_name(target_language)
     four_sec, eight_sec = budget_chars(4.0, target_language), budget_chars(8.0, target_language)
     selected_mode = fill_mode if fill_mode in FILL_MODE_PROMPTS else "continuous"
     if selected_mode == "continuous":
@@ -700,27 +733,24 @@ DUBBING VOICE — NON-NEGOTIABLE:
   not a fixed cadence. Do NOT pad timestamps evenly; place them on the real visual changes.
 - Prefer fewer, fuller lines of 5-10 seconds over many tiny 2-3 second scraps about the same beat."""
     else:
-        task_rules = f"""DIALOGUE DUB TIMELINE RULES
+        task_rules = f"""DIALOGUE DUB TIMELINE RULES — FULL TRANSLATION (never summarise)
 - Return an entry ONLY for real speech audible in the source audio. A quiet interval is correct;
   never add a line to satisfy clip coverage.
-- TIMESTAMP ACCURACY IS THE WHOLE JOB. Stamp each utterance's start at the audio ONSET (the first
-  millisecond a voice is heard) and end at the audio OFFSET (when it stops), in absolute full-video
-  seconds. Do NOT place timestamps on a fixed cadence or at even intervals — place them on the
-  real speech. If you cannot hear a clear onset, space the entries in speech order inside the clip.
-- One original speaker turn = one entry. A turn ends when the speaker pauses clearly or another
-  speaker starts — never merge two speakers into one line, never split one turn into two entries.
-- Translate EXACTLY what is spoken, in speech order — one COMPLETE translated line per turn.
-  Never end on a dangling particle (က / တဲ့ / များ / တော့ / ကို / မှာ / ကြောင့် / ဖို့ / နဲ့ / ပြီး /
-  တုန်း / ရဲ့ / ဟာ / လည်း / လို့ / ရင် / သော / သည့် / စွာ / ချင်း / ရင်း / သို့ / ကာ / လျက်) —
-  keep translating until the sentence reaches a finished verb and a real "။".
-- Label `speaker` "MALE" or "FEMALE" (capitals) by the VOICE heard, not appearance — the dub
-  engine picks the matching gender voice from this tag.
-- NEVER give two entries the same start time, and NEVER stamp at the clip end or the video
-  duration — every entry sits on its own audible onset/offset.
-- Never cut a word in half — finish every word fully.
-- The translation must fit its own [start,end] window at a CALM natural pace; the retime engine
-  slows the picture up to 0.75x for a small overrun, but a line far longer than its window will
-  still run over — so say it concisely without dropping meaning."""
+- TIMESTAMP ACCURACY IS THE WHOLE JOB. Stamp each utterance's start at the audio ONSET and end at
+  the audio OFFSET, in absolute full-video seconds. Do NOT place timestamps on a fixed cadence —
+  place them on the real speech.
+- FULL TRANSLATION, NEVER A SUMMARY: render EVERY spoken utterance completely and faithfully.
+  Do NOT shorten, compress, paraphrase-away, or drop any sentence, clause, name, number or detail
+  to make it fit the window. The dub engine slows the picture to meet the voice, so a faithful
+  translation that runs a little long is correct — a trimmed translation is a defect.
+- One original speaker turn = one COMPLETE translated line, start to finish. Never split a turn,
+  never merge two speakers. Never end on a dangling particle — keep translating until the
+  sentence reaches a finished verb and real final punctuation.
+- Label `speaker` "MALE" or "FEMALE" (capitals) by the VOICE heard, not appearance.
+- NEVER give two entries the same start time, and NEVER stamp at the clip end or video duration —
+  every entry sits on its own audible onset/offset.
+- Cover the WHOLE clip: if characters keep speaking until {chunk_end:.1f}s, the last translated
+  line must reach there — a dub that stops early is a failure."""
 
     return f"""You are an award-winning film recap writer and professional dubbing director. Follow the
 selected task exactly; Recap and Dialogue Dubbing are different products.
@@ -765,7 +795,7 @@ JSON SHAPE
 }}"""
 
 def _gap_fill_prompt(gaps: list[dict], lang: str, context_lines: list[dict]) -> str:
-    lang_word = "Burmese" if lang == "my" else "English"
+    lang_word = _language_name(lang)
     gap_block = "\n".join(
         f"- index {g['index']}: {g['start']:.1f}s → {g['end']:.1f}s "
         f"({g['end'] - g['start']:.1f}s long, roughly {int(g['chars'])} {lang_word} characters)"
@@ -1087,6 +1117,60 @@ def sentence_complete(text: str, lang: str = "my") -> bool:
     }
 
 
+
+
+def validate_dubbing_script(dialogues: list[dict], duration: float,
+                            lang: str = "my", *, max_tail_gap: float = 12.0) -> dict:
+    """Pre-TTS completeness gate for a full-translation dub.
+
+    Checks the translated script BEFORE any voice is synthesised, so an
+    incomplete dub is caught while it is still cheap to fix (the caller can
+    re-analyse the missing windows) instead of shipping a video with silent
+    dialogue. Verifies, in order:
+
+    * every line carries non-empty translated text,
+    * lines are ordered and non-overlapping on the timeline,
+    * no translated line was cut mid-thought (sentence-completeness runs for
+      Burmese; other languages use the generic punctuation check),
+    * the translation reaches the end of the clip (no silent tail).
+
+    Returns ``{complete, lines, empty_lines, unordered, fragments, tail_gap,
+    missing_windows}`` — ``missing_windows`` are the time ranges the caller
+    should re-analyse.
+    """
+    rows = sorted([d for d in (dialogues or [])
+                   if float(d.get("start", 0.0) or 0.0) < duration],
+                  key=lambda d: float(d.get("start", 0.0) or 0.0))
+    empty: list[int] = []
+    fragments: list[int] = []
+    unordered = 0
+    cursor = 0.0
+    for idx, d in enumerate(rows):
+        text = str(d.get("text", "")).strip()
+        if not text:
+            empty.append(idx)
+            continue
+        start = max(0.0, float(d.get("start", 0.0) or 0.0))
+        if start < cursor - 0.05:
+            unordered += 1
+        cursor = max(cursor, float(d.get("end", start) or start))
+        if lang == "my" and not sentence_complete(text, "my"):
+            fragments.append(idx)
+    tail_gap = max(0.0, duration - cursor)
+    # windows worth re-analysing: any hole ≥ 8s in the translated timeline
+    missing_windows = [{"start": round(g["start"], 2), "end": round(g["end"], 2)}
+                       for g in find_gaps(rows, duration, 8.0)] if rows else []
+    complete = (not empty and unordered == 0 and tail_gap <= max_tail_gap
+                and not fragments)
+    return {
+        "complete": complete,
+        "lines": len(rows),
+        "empty_lines": empty,
+        "unordered": unordered,
+        "fragments": fragments,
+        "tail_gap": round(tail_gap, 2),
+        "missing_windows": missing_windows,
+    }
 
 
 class TimelineExtractor:
@@ -1727,7 +1811,7 @@ class TimelineExtractor:
             f"- index {b['index']} (max {b['max_chars']} chars): \"{b['text']}\""
             f"  [context before: \"{b['before']}\" / after: \"{b['after']}\"]"
             for b in batch)
-        lang_word = "Burmese" if self.lang == "my" else "English"
+        lang_word = _language_name(self.lang)
         kind = "recap" if self.fill_mode == "continuous" else "dubbing"
         mode_note = (" Each line is one speaker's turn in a dubbing script: keep it inside its own "
                      "speech window and complete it only from the neighbouring turns' content — "
@@ -1811,12 +1895,26 @@ Rewrite EACH line into ONE complete, full, natural, flowing sentence:
         clause-boundary cut for anything still too long. The voice itself
         is never sped up (that stays forbidden), and retime only has to
         absorb the small remainder.
+
+        v1.28 FULL-TRANSLATION RULE (dubbing): translated lines are NEVER
+        shortened — a faithful dub must keep every translated sentence in
+        full, so a long line is left for the retime engine to slow/freeze
+        the picture around. Minute-fit only rewrites RECAP narration.
         """
         from .tts import chars_per_second, condense_line
         cps = chars_per_second(self.lang)
         lines = sorted(dialogues, key=lambda d: float(d.get("start", 0.0)))
         report = {"checked": len(lines), "fixed_ai": 0, "fixed_cut": 0,
                   "blocks_adjusted": 0}
+        if self.fill_mode == "dialogue":
+            # A faithful dub keeps every translated sentence — never trim,
+            # never rewrite to fit a window. Report the overruns so the UI
+            # can show "picture will slow/freeze here", but touch nothing.
+            report["skipped_dubbing"] = sum(
+                1 for d in lines
+                if estimate_speech_seconds(str(d.get("text", "")), self.lang)
+                > max(0.4, float(d.get("end", 0.0)) - float(d.get("start", 0.0))))
+            return lines, report
 
         def window(d: dict) -> float:
             return max(0.4, float(d.get("end", 0.0)) - float(d.get("start", 0.0)))
@@ -1870,7 +1968,7 @@ Rewrite EACH line into ONE complete, full, natural, flowing sentence:
             listing = "\n".join(
                 f"- index {b['index']} (max {b['max_chars']} characters): {b['text']}"
                 for b in batch)
-            lang_word = "Burmese" if self.lang == "my" else "English"
+            lang_word = _language_name(self.lang)
             prompt = f"""Shorten these {lang_word} recap lines. Each one is currently TOO LONG to be
 spoken inside its own scene, so the narrator would still be reading it after the picture changed.
 

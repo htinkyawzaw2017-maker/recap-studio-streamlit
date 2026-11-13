@@ -212,6 +212,28 @@ _edge = compute_spans([(0.0, 3.576, 3.595, 0)], 3.576)
 ok(_edge[0].slot_len >= 3.595 and _edge[0].speed <= 1.0,
    "near-fit overrun: slot holds full speech, picture stays 1.0x/frozen")
 
+# 13c ── v1.28: FULL-TRANSLATION dubbing — every output language works, and
+#       minute-fit NEVER shortens a translated (dubbing) line.
+from recapstudio.tts import VOICE_CATALOG as _VC, chars_per_second as _cps
+for _code, _cat in _VC.items():
+    for _vk, _vc in _cat.items():
+        assert _vc["lang"] == _code and _vc["gender"] in ("MALE", "FEMALE")
+ok(len(_VC) >= 14, f"v1.28 voices: {_VC and len(_VC)} output languages with MALE/FEMALE")
+ok(_cps("zh") < 6.0 and _cps("ja") < 8.0 and _cps("en") > 13.0,
+   "v1.28 per-language speaking budgets (CJK denser, Latin looser)")
+from recapstudio.ai import _chunk_prompt, _language_name
+_pzh = _chunk_prompt(0.0, 60.0, "zh", "auto", "dialogue", 60.0)
+ok("FULL TRANSLATION" in _pzh and "Chinese" in _pzh,
+   "dub prompt names the target language and bans summarising")
+from recapstudio.util import estimate_speech_seconds as _est
+_long = "ဒီဇာတ်လမ်းမှာ သူရဲကောင်းတစ်ယောက် ရွာကို ကယ်တင်ဖို့ တောင်ပေါ်ကို တက်သွားပါတယ် " * 3
+_dubfit, _drep = TimelineExtractor(fill_mode="dialogue")._enforce_minute_fit(
+    [{"start": 0.0, "end": 5.0, "speaker": "MALE", "text": _long},
+     {"start": 5.0, "end": 12.0, "speaker": "FEMALE", "text": "အားလုံး ပျော်ရွှင်စွာ နေထိုင်ကြပါတယ်။"}],
+    12.0)
+ok(_dubfit[0]["text"] == _long and _drep["fixed_ai"] == 0 and _drep["fixed_cut"] == 0,
+   "v1.28 dubbing: translated line NEVER shortened (minute-fit skips dubs)")
+
 # 14 ── v1.4: PNG/Raqm subtitle burn (libass shapes Myanmar incorrectly in
 #       our deploy environments; shaping itself is A/B-verified visually)
 from recapstudio import subpng
