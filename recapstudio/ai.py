@@ -1304,6 +1304,35 @@ class TimelineExtractor:
                            f"🧠 AI စစ်ဆေးပြီး {done}/{len(chunks)} အပိုင်း "
                            f"({start:.0f}-{end:.0f}s) ✅")
 
+        # v1.31: a failed chunk used to lose its WHOLE time range silently —
+        # the recap/dub would jump from one scene to the next with nothing in
+        # between ("စာသား အစအဆုံး မပါ"). Retry each failed chunk SERIALLY
+        # once (a fresh, unhurried call usually succeeds where the parallel
+        # burst was throttled).
+        if errors:
+            failed = [(s, e) for (s, e) in chunks
+                      if any(f"({s:.0f}-{e:.0f}s)" in err for err in errors)]
+            if failed:
+                self.log(f"↻ ကျရှုံးသော အပိုင်း {len(failed)} ခုကို တစ်ခုချင်း "
+                         f"ပြန်စမ်းနေပါသည် (စကားလုံး မပျောက်စေရန်)...")
+                for start, end in failed:
+                    self._check_cancel()
+                    try:
+                        idx = next(i for i, (s, e) in enumerate(chunks)
+                                   if s == start and e == end)
+                        payload, count = self._analyze_chunk(
+                            video_path, start, end, duration, idx, len(chunks))
+                        results.extend(payload["dialogues"])
+                        per_chunk.append({"index": idx + 1, "start": round(start, 1),
+                                          "end": round(end, 1), "lines": count,
+                                          "retried": True})
+                        if payload.get("hook_line1") or payload.get("hook_line2"):
+                            results.append({"__hook__": payload})
+                        self.log(f"✓ chunk retry ok: {start:.0f}-{end:.0f}s "
+                                 f"({count} lines recovered)")
+                    except Exception as exc:
+                        self.log(f"⚠️ chunk retry failed ({start:.0f}-{end:.0f}s): {exc}")
+
         if not results and errors:
             raise RuntimeError("AI analysis failed for every chunk:\n" + "\n".join(errors[:3]))
 
@@ -1573,10 +1602,8 @@ class TimelineExtractor:
             if window < 3.0:
                 continue
             text = self._FALLBACK_LINES[idx % len(self._FALLBACK_LINES)]
-            est = estimate_speech_seconds(text, self.lang)
-            if est > window:
-                keep = max(12, int(len(text) * (window / est)))
-                text = text[:keep].rstrip(" ။၊,")
+            # v1.31: never truncate a fallback line — a chopped sentence is
+            # worse than a long one, and retime slows the picture for it.
             if not text:
                 continue
             dialogues.append({"start": gap["start"], "end": gap["end"],
@@ -1667,8 +1694,13 @@ class TimelineExtractor:
                 if not text:
                     continue
                 est = estimate_speech_seconds(text, self.lang)
+                # v1.31 owner rule: NEVER cut text to fit a gap — the retime
+                # engine (0.60x picture + up to 1.2x voice) absorbs the
+                # overrun. A half sentence is worse than a slightly long one.
                 if est > (gap["end"] - gap["start"]) + 1.0:
-                    text = text[: max(10, int(len(text) * (gap["end"] - gap["start"]) / est))]
+                    self.log(f"↳ gap {gap['start']:.0f}s line runs "
+                             f"{est - (gap['end'] - gap['start']):.1f}s over — "
+                             f"kept in full (retime handles it)")
                 dialogues.append({"start": gap["start"], "end": gap["end"], "speaker": "Recap",
                                   "text": text})
                 added += 1
@@ -2038,24 +2070,18 @@ Rules:
                 raise
             except Exception as exc:
                 self.log(f"⚠️ minute-fit rewrite failed: {exc}")
-        # 2) deterministic clause cut — v1.26 owner rule: cut text is WORSE
-        # than a slowed picture, so this now only fires on EXTREME overruns
-        # (>1.6x the window — even retime at 0.75x + freeze cannot carry it).
-        # Mild overruns rely on the AI rewrite above and the retime engine.
-        for pos, max_chars in remaining.items():
-            est = estimate_speech_seconds(str(lines[pos].get("text", "")), self.lang)
-            if est <= window(lines[pos]) * 1.6:
-                continue
-            short, changed = condense_line(str(lines[pos].get("text", "")),
-                                           max_chars / max(1.0, cps), self.lang)
-            if changed and short:
-                lines[pos]["text"] = short
-                report["fixed_cut"] += 1
-        if report["fixed_ai"] or report["fixed_cut"]:
-            self.log(f"✂️ Minute-fit (ကွက်တိ): လိုင်း {report['fixed_ai'] + report['fixed_cut']} ကြောင်း "
-                     f"ကို သူ့အခန်း/မိနစ် အတွင်း ဝင်အောင် ချုံ့ပြီးပါပြီ "
-                     f"(AI rewrite {report['fixed_ai']}, cut {report['fixed_cut']}, "
-                     f"blocks {report['blocks_adjusted']})")
+        # 2) v1.31 owner rule: NEVER cut text — not mid-sentence, not at the
+        # end. The old deterministic clause cut (condense_line) amputated
+        # meaning to satisfy the clock, which is exactly the "စာသား
+        # အပြည့်အစုံ မပါ" complaint. A line that still overruns its scene is
+        # left WHOLE; the retime engine slows the picture to 0.60x, speeds
+        # the voice to at most 1.2x, and lets the scene take the time it
+        # needs. Only the (fact-preserving) AI tight rewrite above may run.
+        if report["fixed_ai"]:
+            self.log(f"✂️ Minute-fit (ကွက်တိ): လိုင်း {report['fixed_ai']} ကြောင်းကို "
+                     f"AI tight rewrite ဖြင့် သူ့အခန်း/မိနစ် အတွင်း ဝင်အောင် ချုံ့ပါပြီ "
+                     f"(blocks {report['blocks_adjusted']}) — ကျန် လိုင်းများ "
+                     f"လုံးဝ မဖြတ်ပါ၊ retime က ရုပ် နှေး/အသံ မြန်ဖြင့် ကိုင်တွယ်ပါမည်")
         return lines, report
 
     def _coverage(self, dialogues: list[dict], duration: float, filled: int,

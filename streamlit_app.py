@@ -59,6 +59,10 @@ from recapstudio.tts import (  # noqa: E402
 )
 from recapstudio.util import human_bytes, human_time  # noqa: E402
 
+#: app version shown in the header/footer — bump this on EVERY update so the
+#: owner can see at a glance which build is running (owner rule v1.31).
+APP_VERSION = "1.30"
+
 #: output-language labels for the dubbing/recap selector (v1.28 any-language)
 LANG_LABELS = {
     "my": "🇲🇲 မြန်မာ", "en": "🇬🇧 English", "zh": "🇨🇳 中文",
@@ -363,12 +367,12 @@ def current_info() -> dict | None:
 # ─────────────────────────────────────────────────────────────────────────
 # Header + stepper
 # ─────────────────────────────────────────────────────────────────────────
-st.markdown("""
+st.markdown(f"""
 <div class="hero">
   <h1>🎬 <span class="grad">Recap Studio MM</span> — Free Edition</h1>
   <p>ဘာသာစကားမရွေး ဗီဒီယို → သဘာဝကျတဲ့ 🇲🇲 မြန်မာ / 🇬🇧 English Recap —
      Gemini Free Keys အများကြီး သုံးနိုင်ပြီး၊ Script ကို အရင်ပြင်ပြီးမှ Render လုပ်ပါတယ်။</p>
-  <p style="opacity:.75">app v1.26</p>
+  <p style="opacity:.75">app v{APP_VERSION}</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1027,6 +1031,6 @@ if SS["outputs"]:
         st.markdown(f'<span class="warnline">⚠️ {_w}</span>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="footer">Recap Studio MM — Free Edition (Streamlit) • app v1.26 • '
+st.markdown(f'<div class="footer">Recap Studio MM — Free Edition (Streamlit) • app v{APP_VERSION} • '
             'အခြေခံ engine: Recap Studio MM Pro v4.4 • Gemini Free + Edge TTS + FFmpeg</div>',
             unsafe_allow_html=True)

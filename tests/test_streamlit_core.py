@@ -164,8 +164,9 @@ ok(engine._convert(_padded, _conv, 1.0, None)
    and get_media_duration(str(_conv)) < 1.15,
    "leading silence stripped from TTS clips")
 
-# 12 ── v1.4: per-minute exact fit (ကွက်တိ) — an over-long line must be
-#       shortened to its scene instead of overrunning into the next scene
+# 12 ── v1.31 owner rule: recap minute-fit uses ONLY the AI rewrite now —
+#       the deterministic clause cut (which chopped text mid-word) is gone.
+#       An over-long line is never cut to fit; retime handles the overrun.
 from recapstudio.ai import TimelineExtractor
 from recapstudio.util import estimate_speech_seconds
 _ext = TimelineExtractor()
@@ -175,10 +176,10 @@ _bad = [
      "text": "နောက်ဆုံးမှာ အားလုံး ပျော်ရွှင်စွာ နေထိုင်ကြပါတယ်။"},
 ]
 _fitted, _rep = _ext._enforce_minute_fit([dict(d) for d in _bad], 12.0)
-ok(_rep["fixed_ai"] + _rep["fixed_cut"] >= 1,
-   "minute-fit shortened the over-long line")
-ok(estimate_speech_seconds(_fitted[0]["text"], "my") <= 5.0 * 1.15,
-   "fitted line now fits its own scene window")
+ok(_rep.get("fixed_cut", 0) == 0,
+   "v1.31: minute-fit NEVER cuts text (fixed_cut is gone)")
+ok(_fitted[0]["text"] == long_text or _rep["fixed_ai"] == 1,
+   "v1.31: line kept whole or AI-rewritten — never amputated")
 
 # 13 ── v1.30: retime — picture slows to 0.60x, voice speeds to 1.2x,
 #       FREEZE IS BANNED (no tpad, span.freeze always 0)
