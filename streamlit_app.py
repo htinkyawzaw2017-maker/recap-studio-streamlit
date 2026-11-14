@@ -61,7 +61,7 @@ from recapstudio.util import human_bytes, human_time  # noqa: E402
 
 #: app version shown in the header/footer — bump this on EVERY update so the
 #: owner can see at a glance which build is running (owner rule v1.31).
-APP_VERSION = "1.30"
+APP_VERSION = "1.31"
 
 #: output-language labels for the dubbing/recap selector (v1.28 any-language)
 LANG_LABELS = {
